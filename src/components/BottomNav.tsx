@@ -1,12 +1,12 @@
-import { Home, ShoppingBag, Users, Wrench, User } from "lucide-react";
+import { Home, ShoppingBag, Users, Sprout, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 
 const tabs = [
   { path: "/", icon: Home, label: "Home" },
   { path: "/marketplace", icon: ShoppingBag, label: "Market" },
+  { path: "/farm", icon: Sprout, label: "My Farm" },
   { path: "/community", icon: Users, label: "Community" },
-  { path: "/toolkit", icon: Wrench, label: "Tools" },
   { path: "/profile", icon: User, label: "Profile" },
 ];
 
