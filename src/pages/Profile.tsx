@@ -1,14 +1,13 @@
 import AppLayout from "@/components/AppLayout";
-import { Settings, ChevronRight, MapPin, Edit, BookOpen, Star, ShoppingBag, Users } from "lucide-react";
+import { Settings, ChevronRight, MapPin, Edit, BookOpen, Star, ShoppingBag, Users, User as UserIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-
-const farmingActivities = ["Crop Farming", "Dairy Farming", "Poultry"];
+import { getCurrentUser } from "@/lib/dataService";
 
 const menuItems = [
   { icon: Edit, label: "Edit Profile", desc: "Update your farming details", path: "/settings" },
   { icon: ShoppingBag, label: "My Listings", desc: "Manage marketplace items", path: "/marketplace" },
-  { icon: Users, label: "Following", desc: "12 farmers you follow", path: "/community" },
+  { icon: Users, label: "Following", desc: "Farmers you follow", path: "/community" },
   { icon: Star, label: "Saved Posts", desc: "Bookmarked content", path: "/community" },
   { icon: BookOpen, label: "Expert Directory", desc: "Find agricultural experts", path: "/experts" },
   { icon: Settings, label: "Settings", desc: "Notifications, privacy, theme", path: "/settings" },
@@ -16,6 +15,7 @@ const menuItems = [
 
 const Profile = () => {
   const navigate = useNavigate();
+  const user = getCurrentUser();
 
   return (
     <AppLayout>
@@ -27,38 +27,49 @@ const Profile = () => {
         >
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
-              F
+              {user?.avatar || <UserIcon className="h-8 w-8" />}
             </div>
             <div className="flex-1">
-              <h1 className="text-lg font-bold text-foreground">Farmer User</h1>
+              <h1 className="text-lg font-bold text-foreground">{user?.name || "Guest User"}</h1>
               <p className="flex items-center gap-1 text-sm text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5" /> Nairobi, Kenya
+                <MapPin className="h-3.5 w-3.5" /> {user?.location || "Location not set"}
               </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {farmingActivities.map((act) => (
-                  <span key={act} className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
-                    {act}
-                  </span>
-                ))}
-              </div>
+              {user?.farmingActivities && user.farmingActivities.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {user.farmingActivities.map((act) => (
+                    <span key={act} className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                      {act}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
           <div className="mt-4 grid grid-cols-3 gap-3 border-t pt-4">
             <div className="text-center">
-              <p className="text-lg font-bold text-foreground">24</p>
+              <p className="text-lg font-bold text-foreground">{user?.postsCount || 0}</p>
               <p className="text-[11px] text-muted-foreground">Posts</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-foreground">156</p>
+              <p className="text-lg font-bold text-foreground">{user?.followers || 0}</p>
               <p className="text-[11px] text-muted-foreground">Followers</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-bold text-foreground">12</p>
+              <p className="text-lg font-bold text-foreground">{user?.following || 0}</p>
               <p className="text-[11px] text-muted-foreground">Following</p>
             </div>
           </div>
         </motion.div>
+
+        {!user && (
+          <div className="harvest-card p-4 text-center">
+            <p className="text-sm text-muted-foreground">Sign in to access your full profile and manage your farm.</p>
+            <button onClick={() => navigate("/onboarding")} className="mt-3 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground">
+              Get Started
+            </button>
+          </div>
+        )}
 
         <div className="space-y-1">
           {menuItems.map((item, i) => (

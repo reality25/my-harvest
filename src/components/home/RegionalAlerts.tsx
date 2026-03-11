@@ -1,27 +1,18 @@
-import { AlertTriangle, Bug, CloudRain } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import { motion } from "framer-motion";
-
-const alerts = [
-  {
-    icon: Bug,
-    title: "Fall Armyworm Alert",
-    text: "Reports of fall armyworm in Nakuru County. Scout your maize fields regularly.",
-    severity: "high" as const,
-  },
-  {
-    icon: CloudRain,
-    title: "Heavy Rainfall Warning",
-    text: "Kenya Met Department warns of heavy rains in Western Kenya this weekend.",
-    severity: "medium" as const,
-  },
-];
+import { getAlerts, type Alert } from "@/lib/dataService";
 
 const severityStyles = {
   high: "border-destructive/30 bg-destructive/5",
   medium: "border-harvest-warning/30 bg-harvest-warning/5",
+  low: "border-border bg-muted/30",
 };
 
 const RegionalAlerts = () => {
+  const alerts = getAlerts();
+
+  if (alerts.length === 0) return null;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -36,12 +27,13 @@ const RegionalAlerts = () => {
       </div>
       <div className="space-y-3">
         {alerts.map((alert) => (
-          <div key={alert.title} className={`rounded-xl border p-4 ${severityStyles[alert.severity]}`}>
+          <div key={alert.id} className={`rounded-xl border p-4 ${severityStyles[alert.severity]}`}>
             <div className="flex items-start gap-3">
-              <alert.icon className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-foreground" />
               <div>
                 <h3 className="text-sm font-semibold text-foreground">{alert.title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{alert.text}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{alert.region}</p>
               </div>
             </div>
           </div>

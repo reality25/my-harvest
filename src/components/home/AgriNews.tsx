@@ -1,28 +1,29 @@
 import { Newspaper, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
-
-const news = [
-  {
-    title: "Kenya Tea Prices Surge to 5-Year High",
-    source: "AgriNews Kenya",
-    time: "3h ago",
-    tag: "Markets",
-  },
-  {
-    title: "New Drought-Resistant Maize Variety Released by KALRO",
-    source: "The Standard",
-    time: "6h ago",
-    tag: "Research",
-  },
-  {
-    title: "Government Subsidizes Fertilizer Prices for Small-Scale Farmers",
-    source: "Daily Nation",
-    time: "1d ago",
-    tag: "Policy",
-  },
-];
+import { getArticles } from "@/lib/dataService";
+import EmptyState from "@/components/ui/EmptyState";
 
 const AgriNews = () => {
+  const articles = getArticles();
+
+  if (articles.length === 0) {
+    return (
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-harvest-sky/10">
+            <Newspaper className="h-4 w-4 text-harvest-sky" />
+          </div>
+          <h2 className="harvest-section-title">Agri News</h2>
+        </div>
+        <EmptyState
+          icon={Newspaper}
+          title="No articles yet"
+          description="Agricultural news and articles will appear here once published."
+        />
+      </div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -41,18 +42,20 @@ const AgriNews = () => {
         </button>
       </div>
       <div className="space-y-3">
-        {news.map((item) => (
-          <div key={item.title} className="harvest-card p-4 cursor-pointer transition-shadow hover:shadow-md">
+        {articles.slice(0, 5).map((item) => (
+          <div key={item.id} className="harvest-card p-4 cursor-pointer transition-shadow hover:shadow-md">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1">
                 <h3 className="text-sm font-semibold text-foreground leading-snug">{item.title}</h3>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  {item.source} · {item.time}
+                  {item.authorName} · {item.readTime}
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-medium text-secondary-foreground">
-                {item.tag}
-              </span>
+              {item.tag && (
+                <span className="shrink-0 rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-medium text-secondary-foreground">
+                  {item.tag}
+                </span>
+              )}
             </div>
           </div>
         ))}

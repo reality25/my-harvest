@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { initializeApp } from "@/lib/dataService";
 import Index from "./pages/Index";
 import Marketplace from "./pages/Marketplace";
 import Community from "./pages/Community";
@@ -14,7 +15,12 @@ import SearchPage from "./pages/SearchPage";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import Experts from "./pages/Experts";
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
+
+// Initialize seed data (admin account) on first run
+initializeApp();
 
 const queryClient = new QueryClient();
 
@@ -36,6 +42,8 @@ const App = () => (
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/experts" element={<Experts />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

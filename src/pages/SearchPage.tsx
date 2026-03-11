@@ -1,36 +1,11 @@
 import AppLayout from "@/components/AppLayout";
-import { Search, X, MapPin, Users, ShoppingBag, BookOpen, UserCheck } from "lucide-react";
+import { Search, X, Users, ShoppingBag, BookOpen, UserCheck } from "lucide-react";
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { searchPlatform, type SearchResult } from "@/lib/dataService";
 
 const categories = ["All", "Farmers", "Posts", "Groups", "Marketplace", "Experts", "Articles"] as const;
 type Category = (typeof categories)[number];
-
-interface SearchResult {
-  id: string;
-  category: Exclude<Category, "All">;
-  title: string;
-  subtitle: string;
-  extra?: string;
-}
-
-const allResults: SearchResult[] = [
-  { id: "f1", category: "Farmers", title: "Jane Wanjiku", subtitle: "Kiambu · Crop Farming", extra: "156 followers" },
-  { id: "f2", category: "Farmers", title: "Peter Ochieng", subtitle: "Kisumu · Livestock", extra: "89 followers" },
-  { id: "f3", category: "Farmers", title: "Mary Akinyi", subtitle: "Nakuru · Mixed Farming", extra: "210 followers" },
-  { id: "p1", category: "Posts", title: "Tips for drought-resistant maize varieties", subtitle: "Posted by James K. · 2h ago" },
-  { id: "p2", category: "Posts", title: "My first avocado harvest — lessons learned", subtitle: "Posted by Grace N. · 5h ago" },
-  { id: "p3", category: "Posts", title: "Solar-powered irrigation pump review", subtitle: "Posted by David M. · 1d ago" },
-  { id: "g1", category: "Groups", title: "Dairy Farming Kenya", subtitle: "2,340 members · 156 posts/week" },
-  { id: "g2", category: "Groups", title: "Poultry Farmers Network", subtitle: "1,890 members · 98 posts/week" },
-  { id: "m1", category: "Marketplace", title: "Grade Holstein Friesian Dairy Cow", subtitle: "KSh 120,000 · Nyandarua" },
-  { id: "m2", category: "Marketplace", title: "Fresh Organic Avocados — 100kg", subtitle: "KSh 8,000 · Murang'a" },
-  { id: "m3", category: "Marketplace", title: "2-Acre Drip Irrigation Kit", subtitle: "KSh 45,000 · Nairobi" },
-  { id: "e1", category: "Experts", title: "Dr. Sarah Akinyi", subtitle: "Veterinarian · Kiambu" },
-  { id: "e2", category: "Experts", title: "James Oduor", subtitle: "Agronomist · Nakuru" },
-  { id: "a1", category: "Articles", title: "Complete Guide to Drip Irrigation", subtitle: "By AgroKnowledge · 5 min read" },
-  { id: "a2", category: "Articles", title: "Preventing Fall Armyworm in Maize", subtitle: "By KALRO · 8 min read" },
-];
 
 const categoryIcons: Record<string, React.ElementType> = {
   Farmers: Users,
@@ -45,21 +20,12 @@ const SearchPage = () => {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<Category>("All");
 
+  const allResults = useMemo(() => searchPlatform(query), [query]);
+
   const filtered = useMemo(() => {
-    let results = allResults;
-    if (activeCategory !== "All") {
-      results = results.filter((r) => r.category === activeCategory);
-    }
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      results = results.filter(
-        (r) =>
-          r.title.toLowerCase().includes(q) ||
-          r.subtitle.toLowerCase().includes(q)
-      );
-    }
-    return results;
-  }, [query, activeCategory]);
+    if (activeCategory === "All") return allResults;
+    return allResults.filter((r) => r.category === activeCategory);
+  }, [allResults, activeCategory]);
 
   const groupedResults = useMemo(() => {
     if (activeCategory !== "All") return { [activeCategory]: filtered };
