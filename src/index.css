@@ -2,95 +2,117 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Playfair+Display:wght@600;700&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 40 33% 97%;
+    --foreground: 150 20% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 150 20% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 150 20% 12%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 142 48% 32%;
+    --primary-foreground: 40 33% 97%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 40 55% 92%;
+    --secondary-foreground: 150 20% 12%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 40 20% 94%;
+    --muted-foreground: 150 10% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 38 80% 55%;
+    --accent-foreground: 150 20% 12%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 40 20% 88%;
+    --input: 40 20% 88%;
+    --ring: 142 48% 32%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    --harvest-green-50: 142 40% 96%;
+    --harvest-green-100: 142 40% 90%;
+    --harvest-green-200: 142 42% 78%;
+    --harvest-green-300: 142 44% 62%;
+    --harvest-green-400: 142 46% 45%;
+    --harvest-green-500: 142 48% 32%;
+    --harvest-green-600: 142 52% 24%;
+    --harvest-green-700: 142 56% 18%;
+
+    --harvest-gold-50: 38 80% 96%;
+    --harvest-gold-100: 38 80% 90%;
+    --harvest-gold-200: 38 75% 78%;
+    --harvest-gold-300: 38 80% 55%;
+    --harvest-gold-400: 35 85% 48%;
+    --harvest-gold-500: 32 90% 40%;
+
+    --harvest-earth-50: 25 30% 96%;
+    --harvest-earth-100: 25 30% 90%;
+    --harvest-earth-200: 25 25% 78%;
+    --harvest-earth-300: 25 20% 58%;
+
+    --harvest-sky: 200 80% 55%;
+    --harvest-rain: 210 65% 50%;
+    --harvest-sun: 45 95% 58%;
+    --harvest-danger: 0 72% 50%;
+    --harvest-warning: 30 90% 50%;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
+    --sidebar-primary: 142 48% 32%;
     --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 142 40% 96%;
+    --sidebar-accent-foreground: 142 56% 18%;
+    --sidebar-border: 40 20% 88%;
+    --sidebar-ring: 142 48% 32%;
 
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --font-display: 'Playfair Display', serif;
+    --font-body: 'DM Sans', sans-serif;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 150 20% 8%;
+    --foreground: 40 20% 94%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 150 18% 12%;
+    --card-foreground: 40 20% 94%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 150 18% 12%;
+    --popover-foreground: 40 20% 94%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 142 48% 42%;
+    --primary-foreground: 150 20% 8%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 150 15% 18%;
+    --secondary-foreground: 40 20% 94%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 150 12% 16%;
+    --muted-foreground: 40 10% 60%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 38 70% 50%;
+    --accent-foreground: 150 20% 8%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --border: 150 12% 20%;
+    --input: 150 12% 20%;
+    --ring: 142 48% 42%;
+
+    --sidebar-background: 150 18% 10%;
+    --sidebar-foreground: 40 20% 94%;
+    --sidebar-primary: 142 48% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 150 15% 16%;
+    --sidebar-accent-foreground: 40 20% 94%;
+    --sidebar-border: 150 12% 18%;
+    --sidebar-ring: 142 48% 42%;
   }
 }
 
@@ -100,6 +122,38 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer components {
+  .harvest-gradient {
+    background: linear-gradient(135deg, hsl(var(--harvest-green-600)), hsl(var(--harvest-green-500)), hsl(var(--harvest-green-400)));
+  }
+
+  .harvest-gradient-gold {
+    background: linear-gradient(135deg, hsl(var(--harvest-gold-400)), hsl(var(--harvest-gold-300)));
+  }
+
+  .harvest-card {
+    @apply bg-card rounded-xl border shadow-sm;
+  }
+
+  .harvest-section-title {
+    @apply text-lg font-semibold text-foreground font-display;
+  }
+
+  .bottom-nav-safe {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
   }
 }
