@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Marketplace from "./pages/Marketplace";
 import Community from "./pages/Community";
 import Toolkit from "./pages/Toolkit";
+import FarmManagement from "./pages/FarmManagement";
 import Profile from "./pages/Profile";
 import Onboarding from "./pages/Onboarding";
 import SearchPage from "./pages/SearchPage";
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/community" element={<Community />} />
           <Route path="/toolkit" element={<Toolkit />} />
+          <Route path="/farm" element={<FarmManagement />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/search" element={<SearchPage />} />
