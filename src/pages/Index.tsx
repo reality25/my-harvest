@@ -1,13 +1,25 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import AppLayout from "@/components/AppLayout";
+import WeatherWidget from "@/components/home/WeatherWidget";
+import FarmingAdvice from "@/components/home/FarmingAdvice";
+import RegionalAlerts from "@/components/home/RegionalAlerts";
+import AgriNews from "@/components/home/AgriNews";
+import SocialFeed from "@/components/home/SocialFeed";
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <AppLayout>
+      <div className="space-y-6 px-4 py-4">
+        <div>
+          <p className="text-sm text-muted-foreground">Good morning,</p>
+          <h1 className="text-2xl font-bold text-foreground">Welcome back, Farmer 🌾</h1>
+        </div>
+        <WeatherWidget />
+        <FarmingAdvice />
+        <RegionalAlerts />
+        <AgriNews />
+        <SocialFeed />
       </div>
-    </div>
+    </AppLayout>
   );
 };
 
