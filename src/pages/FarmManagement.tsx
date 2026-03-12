@@ -36,6 +36,26 @@ const FarmManagement = () => {
 
   const refresh = () => setActivities(getFarmActivities(user?.id));
 
+  if (!isAuthenticated) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+          <Sprout className="h-12 w-12 text-muted-foreground mb-4" />
+          <h1 className="text-xl font-bold text-foreground mb-2">Farm Management</h1>
+          <p className="text-sm text-muted-foreground mb-6 max-w-xs">
+            Sign in to track your farm activities, manage tasks, and keep records of your agricultural operations.
+          </p>
+          <button
+            onClick={() => navigate("/login")}
+            className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground"
+          >
+            <LogIn className="h-4 w-4" /> Sign In to Get Started
+          </button>
+        </div>
+      </AppLayout>
+    );
+  }
+
   const upcomingTasks = activities
     .flatMap((a) => a.tasks.map((t) => ({ ...t, activityName: a.name, activityType: a.type, activityId: a.id })))
     .filter((t) => !t.completed)
