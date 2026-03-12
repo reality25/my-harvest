@@ -1,12 +1,14 @@
 import { useState } from "react";
 import AppLayout from "@/components/AppLayout";
 import { motion } from "framer-motion";
-import { Plus, Wheat, Fish, Hexagon, ChevronRight, Calendar, ClipboardList, TrendingUp, Sprout } from "lucide-react";
+import { Plus, Wheat, Fish, Hexagon, ChevronRight, Calendar, ClipboardList, TrendingUp, Sprout, LogIn } from "lucide-react";
 import { Bug as Cow } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import CreateActivitySheet from "@/components/farm/CreateActivitySheet";
 import ActivityTimeline from "@/components/farm/ActivityTimeline";
 import EmptyState from "@/components/ui/EmptyState";
-import { getFarmActivities, updateFarmActivity, createFarmActivity, getCurrentUser } from "@/lib/dataService";
+import { getFarmActivities, updateFarmActivity, createFarmActivity } from "@/lib/dataService";
+import { useAuth } from "@/contexts/AuthContext";
 import type { FarmActivity, FarmTask, FarmRecord } from "@/lib/dataService";
 
 const typeIcons = {
@@ -26,7 +28,8 @@ const typeColors = {
 };
 
 const FarmManagement = () => {
-  const user = getCurrentUser();
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [activities, setActivities] = useState<FarmActivity[]>(() => getFarmActivities(user?.id));
   const [selectedActivity, setSelectedActivity] = useState<FarmActivity | null>(null);
   const [showCreate, setShowCreate] = useState(false);
