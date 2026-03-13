@@ -52,6 +52,13 @@ export interface Comment {
   reported: boolean;
 }
 
+export interface Reaction {
+  id: string;
+  postId: string;
+  userId: string;
+  type: "like" | "dislike";
+}
+
 export interface MarketplaceListing {
   id: string;
   sellerId: string;
