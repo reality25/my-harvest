@@ -10,6 +10,7 @@ import Marketplace from "./pages/Marketplace";
 import Community from "./pages/Community";
 import Toolkit from "./pages/Toolkit";
 import FarmManagement from "./pages/FarmManagement";
+import FarmAssistant from "./pages/FarmAssistant";
 import Profile from "./pages/Profile";
 import Onboarding from "./pages/Onboarding";
 import Login from "./pages/Login";
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/community" element={<Community />} />
             <Route path="/toolkit" element={<Toolkit />} />
             <Route path="/farm" element={<FarmManagement />} />
+            <Route path="/assistant" element={<FarmAssistant />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/login" element={<Login />} />

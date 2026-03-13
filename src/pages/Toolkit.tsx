@@ -1,6 +1,7 @@
 import AppLayout from "@/components/AppLayout";
 import { Calculator, Droplets, Wheat, Bug as Cow, Fish, Hexagon, Bot, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
 const tools = [
   {
@@ -42,6 +43,14 @@ const tools = [
 ];
 
 const Toolkit = () => {
+  const navigate = useNavigate();
+
+  const handleToolClick = (title: string) => {
+    if (title === "AI Farm Assistant") {
+      navigate("/assistant");
+    }
+  };
+
   return (
     <AppLayout>
       <div className="px-4 py-4 space-y-6">
@@ -60,6 +69,7 @@ const Toolkit = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
               className="harvest-card p-4 cursor-pointer transition-shadow hover:shadow-md"
+              onClick={() => handleToolClick(tool.title)}
             >
               <div className="flex items-start gap-3">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${tool.color}`}>
