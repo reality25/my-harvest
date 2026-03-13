@@ -1,3 +1,5 @@
+// src/App.tsx
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -5,6 +7,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { initializeApp } from "@/lib/dataService";
+import { supabase } from "./services/supabaseClient"; // Supabase client
+import { syncProfile } from "./services/profileService"; // Auto profile creation
+import GoogleLoginButton from "./components/GoogleLoginButton"; // Login button
+
 import Index from "./pages/Index";
 import Marketplace from "./pages/Marketplace";
 import Community from "./pages/Community";
@@ -29,37 +35,55 @@ initializeApp();
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/marketplace" element={<Marketplace />} />
-            <Route path="/community" element={<Community />} />
-            <Route path="/toolkit" element={<Toolkit />} />
-            <Route path="/farm" element={<FarmManagement />} />
-            <Route path="/assistant" element={<FarmAssistant />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/experts" element={<Experts />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  useEffect(() => {
+    // Sync profile if user is already logged in on page load
+    syncProfile();
+
+    // Listen to auth state changes (login/logout)
+    const { subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) syncProfile();
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/marketplace" element={<Marketplace />} />
+              <Route path="/community" element={<Community />} />
+              <Route path="/toolkit" element={<Toolkit />} />
+              <Route path="/farm" element={<FarmManagement />} />
+              <Route path="/assistant" element={<FarmAssistant />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/onboarding" element={<Onboarding />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/search" element={<SearchPage />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/experts" element={<Experts />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            {/* Add Google login button somewhere globally accessible */}
+            <div className="fixed bottom-4 right-4">
+              <GoogleLoginButton />
+            </div>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
