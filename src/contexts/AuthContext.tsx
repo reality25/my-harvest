@@ -1,10 +1,12 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from "react";
 import { getCurrentUser, setCurrentUser, type User } from "@/lib/dataService";
 import { supabase } from "@/services/supabaseClient";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => { success: boolean; error?: string };
   signup: (email: string, password: string, name: string) => { success: boolean; error?: string };
   logout: () => void;
@@ -52,41 +54,71 @@ function supabaseUserToLocal(supabaseUser: { id: string; email?: string; user_me
   };
 }
 
+/** Pages where we should NOT auto-redirect after OAuth callback */
+const AUTH_PAGES = ["/login", "/signup", "/forgot-password", "/admin/login"];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(getCurrentUser);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => {
     return localStorage.getItem("harvest_onboarding_complete") === "true";
   });
+  const hasHandledOAuth = useRef(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const isAuthenticated = user !== null;
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        const localUser = supabaseUserToLocal(session.user);
-        setCurrentUser(localUser);
-        setUser(localUser);
-        const onboarded = localStorage.getItem(`harvest_onboarded_${localUser.id}`);
-        setHasCompletedOnboarding(onboarded === "true");
-      }
-    });
+  /** Centralised handler: set local user + decide redirect */
+  const handleSupabaseUser = useCallback((supabaseUser: { id: string; email?: string; user_metadata?: Record<string, string> }, isNewSession: boolean) => {
+    const localUser = supabaseUserToLocal(supabaseUser);
+    setCurrentUser(localUser);
+    setUser(localUser);
+    const onboarded = localStorage.getItem(`harvest_onboarded_${localUser.id}`);
+    const isOnboarded = onboarded === "true";
+    setHasCompletedOnboarding(isOnboarded);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        const localUser = supabaseUserToLocal(session.user);
-        setCurrentUser(localUser);
-        setUser(localUser);
-        const onboarded = localStorage.getItem(`harvest_onboarded_${localUser.id}`);
-        setHasCompletedOnboarding(onboarded === "true");
-      } else if (_event === "SIGNED_OUT") {
+    // Only redirect when coming back from an OAuth callback or landing on auth pages
+    if (isNewSession && AUTH_PAGES.some((p) => location.pathname.startsWith(p))) {
+      if (localUser.role === "admin") {
+        navigate("/admin", { replace: true });
+      } else if (!isOnboarded) {
+        navigate("/onboarding", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
+    }
+  }, [navigate, location.pathname]);
+
+  useEffect(() => {
+    // 1. Set up listener FIRST (per Supabase best practices)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user && !hasHandledOAuth.current) {
+        hasHandledOAuth.current = true;
+        handleSupabaseUser(session.user, true);
+        setIsLoading(false);
+      } else if (event === "TOKEN_REFRESHED" && session?.user) {
+        // Silent refresh — update user without redirect
+        handleSupabaseUser(session.user, false);
+      } else if (event === "SIGNED_OUT") {
+        hasHandledOAuth.current = false;
         setCurrentUser(null);
         setUser(null);
         setHasCompletedOnboarding(false);
+        setIsLoading(false);
       }
     });
 
+    // 2. Then check existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        handleSupabaseUser(session.user, false);
+      }
+      setIsLoading(false);
+    });
+
     return () => subscription.unsubscribe();
-  }, []);
+  }, [handleSupabaseUser]);
 
   const login = useCallback((email: string, password: string) => {
     const users = getStore<User & { password: string }>("users");

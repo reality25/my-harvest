@@ -9,7 +9,7 @@ export const signInWithGoogle = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: "https://my-harvest.vercel.app",
+      redirectTo: window.location.origin,
     },
   })
   if (error) throw error
