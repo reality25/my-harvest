@@ -3,11 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Leaf, LogOut, Users, FileText, ShoppingBag, AlertTriangle, BookOpen, UserCheck,
-  BarChart3, Trash2, Ban, CheckCircle, Plus, Edit, Eye, EyeOff, ChevronRight, Shield,
-  X,
+  BarChart3, Trash2, Ban, CheckCircle, Plus, Eye, EyeOff, Shield, Settings,
 } from "lucide-react";
 import {
-  isAdmin, setCurrentUser, getPlatformStats,
+  getPlatformStats,
   getUsers, updateUser, deleteUser,
   getPosts, deletePost,
   getListings, deleteListing, updateListing,
@@ -16,8 +15,10 @@ import {
   getExperts, updateExpert, deleteExpert,
   type User, type Post, type MarketplaceListing, type Alert, type Article, type Expert,
 } from "@/lib/dataService";
+import { supabase } from "@/services/supabaseClient";
+import { isAdminEmail, getSiteSettings, updateSiteSettings, type SiteSettings } from "@/lib/adminConfig";
 
-type Tab = "overview" | "users" | "posts" | "marketplace" | "alerts" | "articles" | "experts";
+type Tab = "overview" | "users" | "posts" | "marketplace" | "alerts" | "articles" | "experts" | "settings";
 
 const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
@@ -27,28 +28,46 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: "alerts", label: "Alerts", icon: AlertTriangle },
   { id: "articles", label: "Articles", icon: BookOpen },
   { id: "experts", label: "Experts", icon: UserCheck },
+  { id: "settings", label: "Settings", icon: Settings },
 ];
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [adminEmail, setAdminEmail] = useState<string | null>(null);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (!isAdmin()) {
-      navigate("/admin/login");
-    }
+    supabase.auth.getSession().then(({ data }) => {
+      const email = data.session?.user?.email ?? null;
+      if (!email || !isAdminEmail(email)) {
+        localStorage.removeItem("harvest_admin_session");
+        navigate("/admin/login", { replace: true });
+      } else {
+        setAdminEmail(email);
+      }
+      setChecking(false);
+    });
   }, [navigate]);
 
-  const handleLogout = () => {
-    setCurrentUser(null);
+  const handleLogout = async () => {
+    localStorage.removeItem("harvest_admin_session");
+    await supabase.auth.signOut();
     navigate("/admin/login");
   };
 
-  if (!isAdmin()) return null;
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!adminEmail) return null;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur-lg">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -60,14 +79,16 @@ const AdminDashboard = () => {
               <span className="ml-2 rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">ADMIN</span>
             </div>
           </div>
-          <button onClick={handleLogout} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
-            <LogOut className="h-4 w-4" /> Logout
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-[11px] text-muted-foreground sm:block">{adminEmail}</span>
+            <button onClick={handleLogout} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+              <LogOut className="h-4 w-4" /> Logout
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-6xl px-4 py-4">
-        {/* Tabs */}
         <div className="flex gap-1 overflow-x-auto pb-3 scrollbar-none">
           {tabs.map((tab) => (
             <button
@@ -83,7 +104,6 @@ const AdminDashboard = () => {
           ))}
         </div>
 
-        {/* Content */}
         <div className="mt-2">
           {activeTab === "overview" && <OverviewPanel />}
           {activeTab === "users" && <UsersPanel />}
@@ -92,6 +112,7 @@ const AdminDashboard = () => {
           {activeTab === "alerts" && <AlertsPanel />}
           {activeTab === "articles" && <ArticlesPanel />}
           {activeTab === "experts" && <ExpertsPanel />}
+          {activeTab === "settings" && <SiteSettingsPanel />}
         </div>
       </div>
     </div>
@@ -202,8 +223,10 @@ const PostsPanel = () => {
   const refresh = () => setPosts(getPosts());
 
   const handleDelete = (id: string) => {
-    deletePost(id);
-    refresh();
+    if (confirm("Delete this post?")) {
+      deletePost(id);
+      refresh();
+    }
   };
 
   return (
@@ -241,15 +264,21 @@ const MarketplacePanel = () => {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
       {listings.length === 0 && <p className="py-12 text-center text-sm text-muted-foreground">No marketplace listings yet.</p>}
       {listings.map((listing) => (
-        <div key={listing.id} className="harvest-card p-4">
+        <div key={listing.id} className={`harvest-card p-4 ${!listing.approved ? "opacity-60" : ""}`}>
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <p className="text-sm font-semibold text-foreground">{listing.title}</p>
               <p className="text-xs text-primary font-bold">{listing.price}</p>
               <p className="text-[11px] text-muted-foreground">{listing.sellerName} · {listing.location}</p>
+              {!listing.approved && <span className="mt-1 inline-block rounded bg-harvest-gold-100 px-1.5 py-0.5 text-[10px] font-medium text-harvest-gold-500">Pending Approval</span>}
             </div>
             <div className="flex gap-1">
-              <button onClick={() => { deleteListing(listing.id); refresh(); }} className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+              {!listing.approved && (
+                <button onClick={() => { updateListing(listing.id, { approved: true }); refresh(); }} className="rounded-lg p-2 text-muted-foreground hover:bg-harvest-green-100 hover:text-harvest-green-600" title="Approve">
+                  <CheckCircle className="h-4 w-4" />
+                </button>
+              )}
+              <button onClick={() => { if (confirm("Delete this listing?")) { deleteListing(listing.id); refresh(); }}} className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -390,7 +419,7 @@ const ArticlesPanel = () => {
               <button onClick={() => { updateArticle(article.id, { published: !article.published }); refresh(); }} className="rounded-lg p-2 text-muted-foreground hover:bg-muted">
                 {article.published ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
-              <button onClick={() => { deleteArticle(article.id); refresh(); }} className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+              <button onClick={() => { if (confirm("Delete this article?")) { deleteArticle(article.id); refresh(); }}} className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -427,7 +456,7 @@ const ExpertsPanel = () => {
                   <CheckCircle className="h-4 w-4" />
                 </button>
               )}
-              <button onClick={() => { deleteExpert(expert.id); refresh(); }} className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" title="Delete">
+              <button onClick={() => { if (confirm("Delete this expert?")) { deleteExpert(expert.id); refresh(); }}} className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" title="Delete">
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -437,5 +466,123 @@ const ExpertsPanel = () => {
     </motion.div>
   );
 };
+
+// ─── Site Settings ────────────────────────────────────────────────────────────
+
+const SiteSettingsPanel = () => {
+  const [settings, setSettings] = useState<SiteSettings>(getSiteSettings());
+  const [saved, setSaved] = useState(false);
+
+  const update = (key: keyof SiteSettings, value: string | boolean) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+    setSaved(false);
+  };
+
+  const handleSave = () => {
+    updateSiteSettings(settings);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 max-w-2xl">
+
+      {/* Branding */}
+      <div className="harvest-card p-5 space-y-4">
+        <h3 className="text-sm font-bold text-foreground">Branding</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Site Name</label>
+            <input value={settings.siteName} onChange={(e) => update("siteName", e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Tagline</label>
+            <input value={settings.tagline} onChange={(e) => update("tagline", e.target.value)} className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
+          </div>
+        </div>
+      </div>
+
+      {/* Announcement Banner */}
+      <div className="harvest-card p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-foreground">Announcement Banner</h3>
+          <Toggle checked={settings.announcementEnabled} onChange={(v) => update("announcementEnabled", v)} />
+        </div>
+        <textarea
+          value={settings.announcementBanner}
+          onChange={(e) => update("announcementBanner", e.target.value)}
+          placeholder="Write a platform-wide announcement message..."
+          rows={3}
+          disabled={!settings.announcementEnabled}
+          className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-primary placeholder:text-muted-foreground disabled:opacity-50"
+        />
+        {settings.announcementEnabled && settings.announcementBanner && (
+          <div className="rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary">
+            Preview: {settings.announcementBanner}
+          </div>
+        )}
+      </div>
+
+      {/* Feature Flags */}
+      <div className="harvest-card p-5 space-y-3">
+        <h3 className="text-sm font-bold text-foreground">Features</h3>
+        <ToggleRow label="Marketplace" description="Allow users to post and view listings" checked={settings.enableMarketplace} onChange={(v) => update("enableMarketplace", v)} />
+        <ToggleRow label="Community Feed" description="Allow users to post and comment" checked={settings.enableCommunity} onChange={(v) => update("enableCommunity", v)} />
+        <ToggleRow label="Experts Directory" description="Show expert profiles and allow bookings" checked={settings.enableExperts} onChange={(v) => update("enableExperts", v)} />
+        <ToggleRow label="Farm Assistant AI" description="Enable the AI-powered farm assistant" checked={settings.enableFarmAssistant} onChange={(v) => update("enableFarmAssistant", v)} />
+      </div>
+
+      {/* User Controls */}
+      <div className="harvest-card p-5 space-y-3">
+        <h3 className="text-sm font-bold text-foreground">User Controls</h3>
+        <ToggleRow label="Allow New Signups" description="Let new users create accounts" checked={settings.allowNewSignups} onChange={(v) => update("allowNewSignups", v)} />
+        <ToggleRow label="Require Listing Approval" description="New marketplace listings need admin approval before going live" checked={settings.requireApprovalForListings} onChange={(v) => update("requireApprovalForListings", v)} />
+      </div>
+
+      {/* Maintenance Mode */}
+      <div className={`harvest-card p-5 space-y-3 ${settings.maintenanceMode ? "border-destructive/40" : ""}`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Maintenance Mode</h3>
+            <p className="text-[11px] text-muted-foreground">Take the site offline for users while you make changes</p>
+          </div>
+          <Toggle checked={settings.maintenanceMode} onChange={(v) => update("maintenanceMode", v)} destructive />
+        </div>
+        {settings.maintenanceMode && (
+          <div className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive font-medium">
+            ⚠️ Maintenance mode is ON — regular users will see an "under maintenance" screen.
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={handleSave}
+        className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-colors ${saved ? "bg-harvest-green-500 text-white" : "bg-primary text-primary-foreground"}`}
+      >
+        {saved ? "✓ Settings Saved" : "Save Settings"}
+      </button>
+    </motion.div>
+  );
+};
+
+const Toggle = ({ checked, onChange, destructive = false }: { checked: boolean; onChange: (v: boolean) => void; destructive?: boolean }) => (
+  <button
+    type="button"
+    onClick={() => onChange(!checked)}
+    className={`relative h-6 w-11 rounded-full transition-colors ${checked ? (destructive ? "bg-destructive" : "bg-primary") : "bg-muted"}`}
+  >
+    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : "translate-x-0.5"}`} />
+  </button>
+);
+
+const ToggleRow = ({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (v: boolean) => void }) => (
+  <div className="flex items-center justify-between gap-4 py-1">
+    <div>
+      <p className="text-sm font-medium text-foreground">{label}</p>
+      <p className="text-[11px] text-muted-foreground">{description}</p>
+    </div>
+    <Toggle checked={checked} onChange={onChange} />
+  </div>
+);
 
 export default AdminDashboard;

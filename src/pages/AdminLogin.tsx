@@ -1,31 +1,47 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Leaf, Shield, AlertCircle } from "lucide-react";
+import { Leaf, Shield, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
-import { adminLogin } from "@/lib/dataService";
+import { supabase } from "@/services/supabaseClient";
+import { isAdminEmail } from "@/lib/adminConfig";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    // Simulate network delay
-    setTimeout(() => {
-      const result = adminLogin(email, password);
-      if (result.success) {
-        navigate("/admin");
-      } else {
-        setError(result.error || "Invalid credentials");
-      }
+    if (!isAdminEmail(email)) {
+      setError("This account does not have admin access.");
       setLoading(false);
-    }, 500);
+      return;
+    }
+
+    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (authError) {
+      setError(authError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!data.session || !isAdminEmail(data.session.user.email)) {
+      await supabase.auth.signOut();
+      setError("This account does not have admin access.");
+      setLoading(false);
+      return;
+    }
+
+    localStorage.setItem("harvest_admin_session", data.session.user.email!);
+    navigate("/admin");
+    setLoading(false);
   };
 
   return (
@@ -46,7 +62,7 @@ const AdminLogin = () => {
         <div className="harvest-card p-6">
           <div className="mb-4 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2">
             <Shield className="h-4 w-4 text-primary" />
-            <span className="text-xs text-muted-foreground">Secure admin authentication</span>
+            <span className="text-xs text-muted-foreground">Secure admin authentication via Supabase</span>
           </div>
 
           {error && (
@@ -63,21 +79,30 @@ const AdminLogin = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@harvest.app"
+                placeholder="your@email.com"
                 required
                 className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
               />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full rounded-xl border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full rounded-xl border bg-background px-4 py-2.5 pr-10 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <button
               type="submit"
@@ -87,10 +112,6 @@ const AdminLogin = () => {
               {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
-
-          <p className="mt-4 text-center text-[11px] text-muted-foreground">
-            This login will connect to Supabase authentication when the backend is configured.
-          </p>
         </div>
 
         <button onClick={() => navigate("/")} className="block w-full text-center text-sm text-muted-foreground hover:text-foreground">
