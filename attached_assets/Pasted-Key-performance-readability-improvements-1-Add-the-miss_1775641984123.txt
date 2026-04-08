@@ -1,0 +1,196 @@
+Key performance/readability improvements
+1) Add the missing indexes (biggest win)
+Your triggers update public.posts / public.communities by PK (id), but your reads (feed, lists, joins, moderation, etc.) will likely filter by these columns. Add indexes aligned to common access patterns and to FK columns.
+
+Recommended starting set:
+
+SQL Query
+
+
+
+-- communities -> members
+create index if not exists idx_community_members_user_id
+  on public.community_members (user_id);
+
+-- posts -> feed by author/community/original
+create index if not exists idx_posts_user_id
+  on public.posts (user_id);
+
+create index if not exists idx_posts_community_id
+  on public.posts (community_id);
+
+create index if not exists idx_posts_original_post_id
+  on public.posts (original_post_id);
+
+-- reactions -> avoid scans + enforce uniqueness fast
+create index if not exists idx_post_reactions_user_id
+  on public.post_reactions (user_id);
+
+-- comments -> pagination + tree building
+create index if not exists idx_post_comments_post_id
+  on public.post_comments (post_id);
+
+create index if not exists idx_post_comments_user_id
+  on public.post_comments (user_id);
+
+-- storage.objects lookup by bucket (depends on how you query it)
+-- (optional; storage schema already has indexes, but bucket_id-based queries can benefit)
+
+Even if your app doesn’t paginate yet, these indexes prevent surprises later.
+
+2) Make the “counts” triggers correct under updates + safer under concurrency
+Right now:
+
+handle_reaction_count() handles UPDATE, but it does not address user_id changing (your PK prevents it, so likely fine).
+Both count triggers do a read-modify-write pattern; concurrency can still be fine for simple +1/-1, but it’s safer/clearer to avoid counting drift by ensuring the logic is exactly per row transition (which you mostly do).
+Readability improves if you split the “like/dislike” branching into one path.
+Also: you’re using SECURITY DEFINER for triggers—good if you need to bypass RLS, but you should ensure the function owner is correct and that only the trigger can execute it (via function ownership/permissions).
+
+Improved function body style (same logic, clearer):
+
+SQL Query
+
+
+
+create or replace function public.handle_reaction_count()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  -- INSERT
+  if tg_op = 'INSERT' then
+    if new.type = 'like' then
+      update public.posts
+      set like_count = like_count + 1
+      where id = new.post_id;
+    else
+      update public.posts
+      set dislike_count = dislike_count + 1
+      where id = new.post_id;
+    end if;
+    return new;
+  end if;
+
+  -- DELETE
+  if tg_op = 'DELETE' then
+    if old.type = 'like' then
+      update public.posts
+      set like_count = greatest(like_count - 1, 0)
+      where id = old.post_id;
+    else
+      update public.posts
+      set dislike_count = greatest(dislike_count - 1, 0)
+      where id = old.post_id;
+    end if;
+    return old;
+  end if;
+
+  -- UPDATE (handle type change)
+  if old.type = new.type then
+    return new;
+  end if;
+
+  if new.type = 'like' then
+    -- moved to like
+    update public.posts
+    set like_count = like_count + 1,
+        dislike_count = greatest(dislike_count - 1, 0)
+    where id = new.post_id;
+  else
+    -- moved to dislike
+    update public.posts
+    set dislike_count = dislike_count + 1,
+        like_count = greatest(like_count - 1, 0)
+    where id = new.post_id;
+  end if;
+
+  return new;
+end;
+$$;
+
+This has two advantages:
+
+It avoids unnecessary updates when type didn’t change.
+It’s easier to reason about.
+Do the same for comment_count and member_count (return early by tg_op instead of nesting).
+
+3) Ensure your RLS policies are valid for storage deletes
+Your storage delete policy:
+
+SQL Query
+
+
+
+and auth.uid()::text = (storage.foldername(name))[1]
+
+This assumes:
+
+your object names are formatted so that the first “folder” equals the user id string (e.g. "<uid>/filename.jpg").
+If your uploaded object paths don’t follow that convention, this policy will silently block deletes. For performance/readability, consider standardizing upload paths in your app and then using that same convention consistently.
+
+Also, readability: give the policy names short + consistent (avoid quotes in policy names unless needed).
+
+4) Add constraints to prevent invalid data (and improve optimizer assumptions)
+You have good defaults, but a few constraints make the model clearer and help query planning.
+
+For example:
+
+SQL Query
+
+
+
+alter table public.posts
+  add constraint posts_text_nonnull check (text is not null);
+
+alter table public.posts
+  add constraint posts_tag_default check (tag is not null);
+
+alter table public.post_reactions
+  add constraint post_reactions_type_check
+  check (type in ('like','dislike'));
+
+-- If you want exactly one of (image_url, video_url) optionally:
+-- (only do this if your product rules match)
+-- alter table public.posts
+--   add constraint posts_one_media check (
+--     (image_url is null) <> (video_url is null)
+--   );
+
+(You already have the reaction check; the above is just an example of how to think about constraints.)
+
+5) Use generate unique columns consistently + avoid schema clutter
+For readability:
+
+Group policies per table (you already do).
+Use consistent naming: trg_*, handle_*.
+Consider adding updated_at columns (not required for your question, but helps later and is a common best practice).
+6) Drop “create policy if not exists” (important)
+Postgres does not support CREATE POLICY IF NOT EXISTS—so this script will fail in a real migration unless Supabase preprocesses it (it doesn’t).
+
+To make it idempotent, you need a different pattern, e.g.:
+
+drop policy if exists ... then create policy ..., or
+wrap with DO blocks.
+Example pattern:
+
+SQL Query
+
+
+
+drop policy if exists "Public can view post media" on storage.objects;
+create policy "Public can view post media"
+  on storage.objects for select
+  using (bucket_id = 'post-media');
+
+This is both correct and more readable than pretending IF NOT EXISTS works.
+
+If you want, I can rewrite the whole script
+Tell me:
+
+how you store storage object paths (is it "<uid>/<filename>"?), and
+whether posts.tag / media fields have product rules (e.g. allow both image and video or exactly one)
+…and I’ll produce a clean, fully idempotent, RLS-correct, index-backed migration version.
+
+
+
