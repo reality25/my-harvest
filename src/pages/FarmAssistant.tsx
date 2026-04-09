@@ -190,7 +190,7 @@ const FarmAssistant = () => {
         mode: hasImage ? "diagnosis" : mode,
         query: aiQuery,
         userId: user?.id,
-        farmActivities,
+        farmRecords,
       });
 
       const assistantMsg: ChatMessage = {
@@ -215,16 +215,16 @@ const FarmAssistant = () => {
     } finally {
       setIsTyping(false);
     }
-  }, [input, isTyping, mode, user?.id, farmActivities, pendingImage]);
+  }, [input, isTyping, mode, user?.id, farmRecords, pendingImage]);
 
   const handleDailyTips = () => {
     setMode("planning");
-    handleSend(buildDailyTipsQuery(farmActivities));
+    handleSend(buildDailyTipsQuery(farmRecords));
   };
 
   const handleFarmAnalysis = () => {
     setMode("planning");
-    handleSend(buildFarmAnalysisQuery(farmActivities));
+    handleSend(buildFarmAnalysisQuery(farmRecords));
   };
 
   if (!isAuthenticated) {
@@ -325,11 +325,11 @@ const FarmAssistant = () => {
               </div>
 
               {/* Farm activity context chips */}
-              {farmActivities.length > 0 && (
+              {farmRecords.length > 0 && (
                 <div>
                   <p className="mb-2 text-xs font-medium text-muted-foreground">From your farm:</p>
                   <div className="flex flex-wrap gap-2">
-                    {farmActivities.map(a => (
+                    {farmRecords.map(a => (
                       <button key={a.id} onClick={() => handleSend(`Give me advice for my ${a.species || a.type} (${a.name})`)}
                         className="rounded-full border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted">
                         {a.name}
