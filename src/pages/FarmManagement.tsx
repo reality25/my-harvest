@@ -5,7 +5,7 @@ import {
   Plus, Wheat, Fish, Hexagon, ChevronRight, Calendar,
   Sprout, LogIn, ArrowLeft, Bot, Check, Trash2,
   AlertTriangle, TrendingUp, ClipboardList, RefreshCw, Bell,
-  Wrench, X,
+  Wrench, X, Heart, Syringe, Scale,
 } from "lucide-react";
 import { Bug as Cow } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +15,7 @@ import {
   fetchFarmRecords, fetchFarmActivities, fetchFarmTasks,
   deleteFarmRecord, completeActivity, deleteDbFarmActivity,
   createDbFarmActivity, completeTask, deleteTask, createFarmTask,
+  generateSmartTasks,
   type FarmRecord, type DbFarmActivity, type FarmTask,
 } from "@/services/farmService";
 import CreateFarmRecordSheet from "@/components/farm/CreateFarmRecordSheet";
@@ -176,6 +177,153 @@ function TaskRow({ task, onComplete, onDelete }: {
   );
 }
 
+// ─── Livestock Health Log ─────────────────────────────────
+interface HealthEntry {
+  id: string;
+  date: string;
+  type: "vaccination" | "treatment" | "weight" | "observation";
+  note: string;
+  weight?: number;
+  vaccineName?: string;
+}
+
+const HEALTH_LOG_KEY = "harvest_health_logs";
+
+function loadHealthLogs(recordId: string): HealthEntry[] {
+  try {
+    const raw = localStorage.getItem(`${HEALTH_LOG_KEY}_${recordId}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function saveHealthLog(recordId: string, logs: HealthEntry[]) {
+  localStorage.setItem(`${HEALTH_LOG_KEY}_${recordId}`, JSON.stringify(logs));
+}
+
+const HEALTH_ENTRY_TYPES = [
+  { value: "vaccination", label: "Vaccination", icon: "💉" },
+  { value: "treatment",   label: "Treatment",   icon: "💊" },
+  { value: "weight",      label: "Weight Check", icon: "⚖️" },
+  { value: "observation", label: "Observation",  icon: "👁️" },
+];
+
+function LivestockHealthPanel({ record }: { record: FarmRecord }) {
+  const [logs, setLogs] = useState<HealthEntry[]>(() => loadHealthLogs(record.id));
+  const [showAdd, setShowAdd] = useState(false);
+  const [type, setType] = useState<HealthEntry["type"]>("vaccination");
+  const [note, setNote] = useState("");
+  const [weight, setWeight] = useState("");
+  const [vaccineName, setVaccineName] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+
+  const handleAdd = () => {
+    if (!note.trim() && !vaccineName.trim()) return;
+    const entry: HealthEntry = {
+      id: crypto.randomUUID(),
+      date,
+      type,
+      note: note.trim() || vaccineName.trim(),
+      weight: weight ? parseFloat(weight) : undefined,
+      vaccineName: vaccineName.trim() || undefined,
+    };
+    const updated = [entry, ...logs];
+    setLogs(updated);
+    saveHealthLog(record.id, updated);
+    setNote(""); setVaccineName(""); setWeight("");
+    setShowAdd(false);
+    toast.success("Health log entry saved!");
+  };
+
+  const handleDelete = (id: string) => {
+    const updated = logs.filter(l => l.id !== id);
+    setLogs(updated);
+    saveHealthLog(record.id, updated);
+  };
+
+  const ENTRY_ICON: Record<string, string> = {
+    vaccination: "💉", treatment: "💊", weight: "⚖️", observation: "👁️"
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Heart className="h-4 w-4 text-red-500" />
+          <h2 className="harvest-section-title">Health Log ({logs.length})</h2>
+        </div>
+        <button
+          onClick={() => setShowAdd(v => !v)}
+          className="flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add Entry
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {showAdd && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="harvest-card p-4 mb-3 space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-foreground">Entry type</label>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {HEALTH_ENTRY_TYPES.map(t => (
+                  <button key={t.value} onClick={() => setType(t.value as HealthEntry["type"])}
+                    className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${type === t.value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"}`}>
+                    {t.icon} {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {type === "vaccination" && (
+              <div>
+                <label className="text-xs font-semibold text-foreground">Vaccine name</label>
+                <input value={vaccineName} onChange={e => setVaccineName(e.target.value)} placeholder="e.g. FMD, Newcastle" className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+            )}
+            {type === "weight" && (
+              <div>
+                <label className="text-xs font-semibold text-foreground">Weight (kg)</label>
+                <input type="number" value={weight} onChange={e => setWeight(e.target.value)} placeholder="e.g. 350" className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+            )}
+            <div>
+              <label className="text-xs font-semibold text-foreground">Notes</label>
+              <input value={note} onChange={e => setNote(e.target.value)} placeholder="Describe what was done..." className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-foreground">Date</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} className="mt-1 w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowAdd(false)} className="flex-1 rounded-xl border py-2.5 text-sm font-medium text-muted-foreground">Cancel</button>
+              <button onClick={handleAdd} disabled={!note.trim() && !vaccineName.trim()} className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">Save</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {logs.length === 0 && !showAdd && (
+        <p className="py-6 text-center text-sm text-muted-foreground">No health entries yet. Log vaccinations, treatments, and weight checks.</p>
+      )}
+      <div className="space-y-2">
+        {logs.map(entry => (
+          <div key={entry.id} className="harvest-card flex items-start gap-3 p-3">
+            <span className="text-lg mt-0.5">{ENTRY_ICON[entry.type]}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">{entry.vaccineName || entry.note}</p>
+              {entry.weight && <p className="text-xs text-muted-foreground">Weight: {entry.weight} kg</p>}
+              {entry.vaccineName && entry.note && <p className="text-xs text-muted-foreground">{entry.note}</p>}
+              <p className="text-[11px] text-muted-foreground mt-0.5">{fmtDate(entry.date)} · {entry.type}</p>
+            </div>
+            <button onClick={() => handleDelete(entry.id)} className="shrink-0 rounded-full p-1 text-muted-foreground hover:text-destructive">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Record Detail View ───────────────────────────────────
 function RecordDetail({ record, activities, onBack, onRefresh }: {
   record: FarmRecord; activities: DbFarmActivity[]; onBack: () => void; onRefresh: () => void;
@@ -255,6 +403,11 @@ function RecordDetail({ record, activities, onBack, onRefresh }: {
           </span>
         )}
       </div>
+
+      {/* Livestock Health Panel — only for livestock/poultry */}
+      {["livestock", "poultry"].includes(record.recordType) && (
+        <LivestockHealthPanel record={record} />
+      )}
 
       {/* Activities */}
       <div>
@@ -341,6 +494,25 @@ const FarmManagement = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [showCreateRecord, setShowCreateRecord] = useState(false);
   const [tab, setTab] = useState<"records" | "tasks" | "activities">("records");
+  const [generatingTasks, setGeneratingTasks] = useState(false);
+
+  const handleGenerateSmartTasks = async () => {
+    setGeneratingTasks(true);
+    try {
+      const count = await generateSmartTasks(records);
+      if (count > 0) {
+        toast.success(`${count} smart task${count !== 1 ? "s" : ""} generated!`);
+        await loadData();
+        setTab("tasks");
+      } else {
+        toast.info("No new tasks to generate right now. Check back closer to harvest dates or when health issues arise.");
+      }
+    } catch {
+      toast.error("Could not generate tasks. Tasks table may not be set up yet.");
+    } finally {
+      setGeneratingTasks(false);
+    }
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -572,11 +744,32 @@ const FarmManagement = () => {
         {/* Tasks tab */}
         {tab === "tasks" && (
           <div className="space-y-2">
+            {/* Smart task generation */}
+            <button
+              onClick={handleGenerateSmartTasks}
+              disabled={generatingTasks || records.length === 0}
+              className="flex w-full items-center gap-3 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10 disabled:opacity-40"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                {generatingTasks ? (
+                  <RefreshCw className="h-4 w-4 text-primary animate-spin" />
+                ) : (
+                  <Bell className="h-4 w-4 text-primary" />
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-foreground">
+                  {generatingTasks ? "Generating tasks..." : "Generate Smart Tasks"}
+                </p>
+                <p className="text-[10px] text-muted-foreground">AI creates tasks from your farm records</p>
+              </div>
+            </button>
+
             {pendingTasks.length === 0 && (
               <div className="flex flex-col items-center gap-3 py-12 text-center">
                 <ClipboardList className="h-10 w-10 text-muted-foreground" />
                 <p className="text-sm font-medium text-foreground">No pending tasks</p>
-                <p className="text-xs text-muted-foreground">Tasks table requires the extended_schema.sql migration</p>
+                <p className="text-xs text-muted-foreground">Use "Generate Smart Tasks" above or add farm records with harvest dates</p>
               </div>
             )}
             {pendingTasks.map(t => (

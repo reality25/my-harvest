@@ -80,10 +80,20 @@ const ListingCard = ({ listing, index, onClick }: Props) => {
           ) : (
             <UserIcon className="h-3 w-3" />
           )}
-          <span className="truncate">{listing.seller_name}</span>
-          <span className="text-border">·</span>
+          <span className="truncate font-medium text-foreground/80">{listing.seller_name}</span>
+          {listing.user_type === "business" && (
+            <span className="shrink-0 rounded-full bg-accent/20 px-1.5 py-0.5 text-[9px] font-semibold text-accent-foreground">✓ Business</span>
+          )}
+        </div>
+        <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <MapPin className="h-3 w-3 shrink-0" />
           <span className="truncate">{listing.location_name}</span>
+          <span className="text-border">·</span>
+          <span className="shrink-0">
+            {Math.ceil((Date.now() - new Date(listing.created_at).getTime()) / 86400000) <= 7
+              ? <span className="text-emerald-600 font-medium">New listing</span>
+              : `Listed ${Math.ceil((Date.now() - new Date(listing.created_at).getTime()) / 86400000)}d ago`}
+          </span>
         </div>
 
         {/* Stats row */}

@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Wheat, Droplets, TrendingUp, DollarSign, Bot,
   ChevronDown, ChevronUp, AlertTriangle, ArrowRight,
-  RefreshCw,
+  RefreshCw, Syringe, BookmarkCheck, Trash2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Bug as Cow } from "lucide-react";
+import { toast } from "sonner";
 
 // ─── Fertilizer data ──────────────────────────────────────
 const FERT_DATA: Record<string, { dap: number; can: number; notes: string }> = {
@@ -364,6 +365,178 @@ function ProfitCalc() {
   );
 }
 
+// ─── Vaccination Scheduler ───────────────────────────────
+const VACCINE_SCHEDULES: Record<string, { vaccine: string; interval: string; notes: string; priority: "routine" | "seasonal" | "required" }[]> = {
+  "Dairy cattle": [
+    { vaccine: "Foot & Mouth Disease (FMD)", interval: "Every 6 months", notes: "Mandatory in Kenya — certificate required for movement", priority: "required" },
+    { vaccine: "Lumpy Skin Disease", interval: "Annually", notes: "Critical during rainy season — insect-borne", priority: "seasonal" },
+    { vaccine: "Blackleg (Clostridial)", interval: "Annually", notes: "Vaccinate calves at 3 months then annually", priority: "routine" },
+    { vaccine: "Brucellosis (heifers)", interval: "Once at 3–6 months", notes: "One-time vaccination for heifers only", priority: "required" },
+    { vaccine: "East Coast Fever (ECF)", interval: "Once (immunization)", notes: "Tick-borne — one-time living vaccine in ECF zones", priority: "routine" },
+  ],
+  "Beef cattle": [
+    { vaccine: "FMD", interval: "Every 6 months", notes: "Required for livestock movement in Kenya", priority: "required" },
+    { vaccine: "Lumpy Skin Disease", interval: "Annually", notes: "Especially before long rains (March)", priority: "seasonal" },
+    { vaccine: "Anthrax", interval: "Annually", notes: "In Anthrax-endemic areas only", priority: "seasonal" },
+    { vaccine: "Blackleg", interval: "Annually", notes: "In high-risk or previously affected areas", priority: "routine" },
+  ],
+  "Goat": [
+    { vaccine: "CCPP (Contagious Caprine Pleuropneumonia)", interval: "Annually", notes: "Highly contagious — vaccinate whole herd", priority: "required" },
+    { vaccine: "Peste des Petits Ruminants (PPR)", interval: "Every 3 years", notes: "Once-every-3-year schedule after primary dose", priority: "required" },
+    { vaccine: "Foot & Mouth (if in risk zone)", interval: "Every 6 months", notes: "Required in FMD-risk areas near cattle", priority: "seasonal" },
+    { vaccine: "Enterotoxemia (Clostridium)", interval: "Annually", notes: "Before rainy season when pasture changes", priority: "routine" },
+  ],
+  "Sheep": [
+    { vaccine: "PPR", interval: "Every 3 years", notes: "Critical — high mortality if unvaccinated", priority: "required" },
+    { vaccine: "Enterotoxemia", interval: "Annually", notes: "Especially for lambs before weaning", priority: "routine" },
+    { vaccine: "Rift Valley Fever (RVF)", interval: "Every 3 years", notes: "Vaccinate before flooding/rainy season if in risk area", priority: "seasonal" },
+  ],
+  "Pig (grower)": [
+    { vaccine: "African Swine Fever (ASF)", interval: "No vaccine — biosecurity only", notes: "Control through movement restrictions and hygiene", priority: "routine" },
+    { vaccine: "Erysipelas", interval: "Twice yearly", notes: "2 doses 3–4 weeks apart initially, then every 6 months", priority: "routine" },
+    { vaccine: "Parvovirus (sows)", interval: "Before each breeding", notes: "Prevents reproductive failure", priority: "routine" },
+  ],
+  "Broiler chicken": [
+    { vaccine: "Newcastle Disease (ND)", interval: "Day 7, 21, then every 2 months", notes: "Critical — wipe-out risk; use eye-drop method", priority: "required" },
+    { vaccine: "Gumboro (IBD)", interval: "Day 10 and 24", notes: "Causes immunosuppression — protects other vaccines", priority: "required" },
+    { vaccine: "Marek's Disease", interval: "At hatchery (day 1)", notes: "Usually done at hatchery; confirm with supplier", priority: "routine" },
+  ],
+  "Layer chicken": [
+    { vaccine: "Newcastle Disease", interval: "Every 6–8 weeks", notes: "Continuous vaccination throughout layer cycle", priority: "required" },
+    { vaccine: "Gumboro", interval: "Day 10 and 24", notes: "Critical for pullets before 6 weeks", priority: "required" },
+    { vaccine: "Infectious Bronchitis", interval: "Every 8 weeks", notes: "Protects respiratory and reproductive tract", priority: "routine" },
+    { vaccine: "Fowl Pox", interval: "Once at 8–10 weeks", notes: "Wing-web stab method; check take at 7 days", priority: "seasonal" },
+  ],
+};
+
+const PRIORITY_COLORS = {
+  required: "bg-red-100 text-red-700",
+  seasonal: "bg-amber-100 text-amber-700",
+  routine:  "bg-blue-100 text-blue-700",
+};
+
+const SAVED_VACC_KEY = "harvest_vacc_records";
+
+interface VaccRecord {
+  id: string;
+  animal: string;
+  vaccine: string;
+  date: string;
+  nextDue: string;
+  notes: string;
+}
+
+function loadVaccRecords(): VaccRecord[] {
+  try { return JSON.parse(localStorage.getItem(SAVED_VACC_KEY) || "[]"); } catch { return []; }
+}
+
+function VaccinationScheduler() {
+  const [animal, setAnimal] = useState("Dairy cattle");
+  const [showLog, setShowLog] = useState(false);
+  const [records, setRecords] = useState<VaccRecord[]>(loadVaccRecords);
+  const [logVaccine, setLogVaccine] = useState("");
+  const [logDate, setLogDate] = useState(new Date().toISOString().split("T")[0]);
+  const [logNotes, setLogNotes] = useState("");
+
+  const schedule = VACCINE_SCHEDULES[animal] ?? [];
+
+  const addRecord = () => {
+    if (!logVaccine.trim()) return;
+    const record: VaccRecord = {
+      id: crypto.randomUUID(),
+      animal,
+      vaccine: logVaccine.trim(),
+      date: logDate,
+      nextDue: "",
+      notes: logNotes.trim(),
+    };
+    const updated = [record, ...records];
+    setRecords(updated);
+    localStorage.setItem(SAVED_VACC_KEY, JSON.stringify(updated));
+    setLogVaccine(""); setLogNotes("");
+    setShowLog(false);
+    toast.success("Vaccination record saved!");
+  };
+
+  const deleteRecord = (id: string) => {
+    const updated = records.filter(r => r.id !== id);
+    setRecords(updated);
+    localStorage.setItem(SAVED_VACC_KEY, JSON.stringify(updated));
+  };
+
+  const animalRecords = records.filter(r => r.animal === animal);
+
+  return (
+    <div className="space-y-4">
+      <Select
+        label="Animal type"
+        value={animal}
+        onChange={setAnimal}
+        options={Object.keys(VACCINE_SCHEDULES).map(k => ({ value: k, label: k }))}
+      />
+
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recommended Schedule</p>
+        {schedule.map((v, i) => (
+          <div key={i} className="rounded-xl border bg-background p-3 space-y-1">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground">{v.vaccine}</p>
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${PRIORITY_COLORS[v.priority]}`}>{v.priority}</span>
+            </div>
+            <p className="text-[11px] text-primary font-medium">⏰ {v.interval}</p>
+            <p className="text-[11px] text-muted-foreground leading-snug">💡 {v.notes}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Vaccination log */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">My Vaccination Records ({animalRecords.length})</p>
+          <button
+            onClick={() => setShowLog(v => !v)}
+            className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+          >
+            <Syringe className="h-3 w-3" /> Log
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {showLog && (
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-xl border bg-background p-3 mb-3 space-y-2">
+              <input value={logVaccine} onChange={e => setLogVaccine(e.target.value)} placeholder="Vaccine name" className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+              <input type="date" value={logDate} onChange={e => setLogDate(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+              <input value={logNotes} onChange={e => setLogNotes(e.target.value)} placeholder="Notes (dosage, vet, batch no.)" className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" />
+              <div className="flex gap-2">
+                <button onClick={() => setShowLog(false)} className="flex-1 rounded-lg border py-2 text-xs font-medium text-muted-foreground">Cancel</button>
+                <button onClick={addRecord} disabled={!logVaccine.trim()} className="flex-1 rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground disabled:opacity-40">Save</button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {animalRecords.length === 0 && !showLog && (
+          <p className="py-4 text-center text-xs text-muted-foreground">No vaccination records logged yet for {animal}.</p>
+        )}
+        <div className="space-y-2">
+          {animalRecords.map(r => (
+            <div key={r.id} className="flex items-start gap-2 rounded-xl border bg-background p-3">
+              <Syringe className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-foreground">{r.vaccine}</p>
+                <p className="text-[11px] text-muted-foreground">{r.date}{r.notes ? ` · ${r.notes}` : ""}</p>
+              </div>
+              <button onClick={() => deleteRecord(r.id)} className="shrink-0 rounded-full p-1 text-muted-foreground hover:text-destructive">
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Toolkit Page ───────────────────────────────────
 const TABS = [
   { id: "fertilizer", label: "Fertilizer", emoji: "🌿", component: FertilizerCalc },
@@ -371,6 +544,7 @@ const TABS = [
   { id: "irrigation", label: "Irrigation",  emoji: "💧", component: IrrigationCalc },
   { id: "yield",      label: "Yield",       emoji: "📊", component: YieldEstimator },
   { id: "profit",     label: "Profit",      emoji: "💰", component: ProfitCalc },
+  { id: "vaccines",   label: "Vaccines",    emoji: "💉", component: VaccinationScheduler },
 ];
 
 const Toolkit = () => {

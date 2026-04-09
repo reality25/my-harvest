@@ -1,0 +1,35 @@
+You are working on an existing deployed web application called “Harvest,” built using React 18, TypeScript, and Vite, styled with Tailwind CSS and shadcn/ui. The app uses React Router v6 for routing, TanStack React Query for server state, and Supabase for authentication (including Google OAuth), database, and storage. The app is already live on Vercel and includes basic modules such as community features, a marketplace, and an initial AI service layer.
+
+Your task is to transform this application into a reliable, production-ready, AI-powered farm management system that supports both crop farming and livestock farming. The system must be modular, adaptive, localized, and designed for real-world usage in environments with unreliable internet and imperfect data. The goal is not just to add features, but to create a system that farmers can depend on daily for decision-making.
+
+Start by implementing an adaptive onboarding system that collects detailed farm data, including farm type (crop, livestock, mixed, or niche such as beekeeping), specific crops or animal types, farm size, and user location. This data must be stored in Supabase and used to dynamically configure the application. The user interface, dashboard, and available tools must adapt based on this information so that users only see relevant features. For example, livestock farmers should not see crop-specific tools, and niche farmers should fall back to a flexible generic system.
+
+Design and extend the database schema in Supabase to support a modular farm system. Create tables such as farms, farm_entities (to represent both crops and animals), tasks, alerts, ai_requests, system_logs, weather_cache, and plans. Ensure the schema is flexible enough to support future expansion without requiring major refactoring. All data must be tied to authenticated users and protected using proper row-level security policies.
+
+Build a comprehensive farm management module that allows users to track crops and livestock. For crops, include planting dates, growth stages, fertilizer usage, irrigation, and disease history. For livestock, include feeding schedules, vaccinations, health logs, and production metrics. The system must allow easy data entry while ensuring that every input produces visible value, such as insights, trends, or recommendations.
+
+Implement a smart task and reminder system that acts as a daily farm planner. Tasks should be generated both manually and automatically based on farm data, schedules, and future AI integration. Each task should include a title, description, due date, priority, and completion status. The system should prioritize tasks and present them clearly on the home dashboard as “What needs to be done today.” Tasks must support offline creation and sync when connectivity is restored.
+
+Design the system to be offline-first wherever possible. Cache important data such as tasks, farm records, and recent activity locally. Allow users to continue logging activities, adding tasks, and uploading images even when offline, and automatically sync data when the connection is restored. Clearly indicate when data is saved locally and pending sync.
+
+Prepare the AI integration layer without requiring active model connections yet. Implement a central ai_requests table that stores all AI interactions, including image-based plant disease scans and livestock health queries. Build the frontend flow for uploading images and submitting queries, and simulate AI responses using mock data. The UI must display a diagnosis, confidence level, possible causes, and clear “what to do next” steps. Always include a disclaimer and an option to escalate to community or expert support.
+
+Ensure the AI system is designed to handle uncertainty. The interface must never present results as absolute truth. Instead, it should show confidence levels (high, medium, low), suggest next actions, and encourage verification when confidence is low. Include a feedback mechanism where users can mark AI responses as helpful or incorrect, and store this feedback for future improvements.
+
+Implement a weather intelligence module using a pluggable API structure. Even if a real API is not yet connected, create a weather service layer and mock responses. Cache weather data in the database and always display the last updated timestamp. The system should translate raw weather data into actionable insights, such as delaying irrigation or warning about disease risks. Handle API failures gracefully by falling back to cached data instead of showing errors.
+
+Build a localization engine that uses stored user location data to filter and deliver relevant alerts, marketplace listings, and insights. Alerts should include weather warnings, pest outbreaks, and regional updates. Design an alerts system with priority levels (low, medium, high, critical) and ensure alerts are grouped and not overwhelming.
+
+Enhance the marketplace to support location-based buying and selling of crops, livestock, and farm inputs. Add basic trust features such as seller information, timestamps, and optional ratings. Prepare the system for future AI enhancements such as price suggestions and demand insights, but do not require them to be functional yet.
+
+Extend the community system to support problem-solving workflows. Users should be able to create posts with text and images, optionally linked to AI results. Add support for tagging posts as expert requests and allow future integration of verified experts. The system should feel like a support network rather than just a feed.
+
+Implement practical farm planning tools such as fertilizer calculators, feed planners, and yield estimators. These tools must be simple, use presets where possible, and produce clear, actionable outputs. Results should be saved and integrated into the farm management workflow.
+
+Focus heavily on user experience. The home dashboard must prioritize clarity and actionability by showing today’s tasks, urgent alerts, and quick actions such as “Scan Crop,” “Add Animal Record,” or “Log Activity.” The system should minimize user effort, aiming for one to two taps per core action. Avoid overwhelming users with excessive data or unnecessary features.
+
+Ensure reliability across the entire system. All external dependencies such as AI and weather services must fail gracefully. No feature should result in a dead-end or blank screen. Log errors and failures in a system_logs table for debugging and monitoring.
+
+Optimize performance by caching queries, lazy loading components, and compressing uploaded media. Ensure the application works well on low-end mobile devices and slow network conditions.
+
+The final system should behave like a dependable farm assistant that helps users understand what to do today, adapts to their farming type and location, continues working even under poor connectivity, and is fully prepared for future AI integration without requiring it to be complete at this stage.

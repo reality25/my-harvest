@@ -297,8 +297,16 @@ const PostCard = ({ post, onDelete, onUpdate }: Props) => {
             </p>
           </div>
           <div className="flex items-center gap-1">
-            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-              {post.tag}
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              post.tag === "Expert Request"
+                ? "bg-amber-100 text-amber-800 ring-1 ring-amber-300"
+                : post.tag === "Alert"
+                ? "bg-red-100 text-red-700"
+                : post.tag === "Success Story"
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-primary/10 text-primary"
+            }`}>
+              {post.tag === "Expert Request" ? "🎓 " : ""}{post.tag}
             </span>
             {isOwner && (
               <div className="relative">

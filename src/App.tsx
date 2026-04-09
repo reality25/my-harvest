@@ -23,6 +23,7 @@ import Experts from "./pages/Experts";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { initializeApp } from "@/lib/dataService";
 
 initializeApp();
@@ -37,27 +38,29 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/marketplace" element={<Marketplace />} />
-              <Route path="/community" element={<Community />} />
-              <Route path="/community/:id" element={<CommunityDetail />} />
-              <Route path="/toolkit" element={<Toolkit />} />
-              <Route path="/farm" element={<FarmManagement />} />
-              <Route path="/assistant" element={<FarmAssistant />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/onboarding" element={<Onboarding />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/search" element={<SearchPage />} />
-              <Route path="/notifications" element={<Notifications />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/experts" element={<Experts />} />
-              <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <ErrorBoundary module="App">
+              <Routes>
+                <Route path="/" element={<ErrorBoundary module="Home"><Index /></ErrorBoundary>} />
+                <Route path="/marketplace" element={<ErrorBoundary module="Marketplace"><Marketplace /></ErrorBoundary>} />
+                <Route path="/community" element={<ErrorBoundary module="Community"><Community /></ErrorBoundary>} />
+                <Route path="/community/:id" element={<ErrorBoundary module="CommunityDetail"><CommunityDetail /></ErrorBoundary>} />
+                <Route path="/toolkit" element={<ErrorBoundary module="Toolkit"><Toolkit /></ErrorBoundary>} />
+                <Route path="/farm" element={<ErrorBoundary module="FarmManagement"><FarmManagement /></ErrorBoundary>} />
+                <Route path="/assistant" element={<ErrorBoundary module="FarmAssistant"><FarmAssistant /></ErrorBoundary>} />
+                <Route path="/profile" element={<ErrorBoundary module="Profile"><Profile /></ErrorBoundary>} />
+                <Route path="/onboarding" element={<Onboarding />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/search" element={<ErrorBoundary module="Search"><SearchPage /></ErrorBoundary>} />
+                <Route path="/notifications" element={<ErrorBoundary module="Notifications"><Notifications /></ErrorBoundary>} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/experts" element={<ErrorBoundary module="Experts"><Experts /></ErrorBoundary>} />
+                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </ErrorBoundary>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

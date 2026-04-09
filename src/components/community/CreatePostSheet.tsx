@@ -12,7 +12,7 @@ interface Props {
   defaultCommunityId?: string | null;
 }
 
-const TAGS = ["Question", "Tip", "Discussion", "Success Story", "Market Info", "Weather", "Alert", "Other"];
+const TAGS = ["Question", "Tip", "Discussion", "Expert Request", "Success Story", "Market Info", "Weather", "Alert", "Other"];
 
 const CreatePostSheet = ({ open, onClose, onCreated, communities = [], defaultCommunityId = null }: Props) => {
   const [text, setText] = useState("");

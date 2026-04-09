@@ -421,6 +421,81 @@ export async function completeTask(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Auto-generates smart tasks based on farm records.
+ * Creates harvest reminders, post-harvest tasks, and health check reminders.
+ * Skips records that already have recent AI tasks.
+ */
+export async function generateSmartTasks(records: FarmRecord[]): Promise<number> {
+  let created = 0;
+  const today = new Date();
+
+  for (const record of records) {
+    if (record.status !== "active") continue;
+
+    // Harvest reminders
+    if (record.expectedHarvestDate) {
+      const harvestDate = new Date(record.expectedHarvestDate);
+      const daysLeft = Math.ceil((harvestDate.getTime() - today.getTime()) / 86400000);
+
+      if (daysLeft >= 0 && daysLeft <= 14) {
+        try {
+          await createFarmTask({
+            farmRecordId: record.id,
+            title: daysLeft === 0
+              ? `Harvest ${record.name} today`
+              : `Prepare for ${record.name} harvest in ${daysLeft} days`,
+            description: `Expected harvest date: ${new Date(record.expectedHarvestDate).toLocaleDateString("en-KE")}. Arrange labor, storage, and transport in advance.`,
+            category: "harvesting",
+            priority: daysLeft <= 3 ? "urgent" : "high",
+            dueDate: record.expectedHarvestDate,
+            taskType: "ai_generated",
+          });
+          created++;
+        } catch {}
+      }
+    }
+
+    // Livestock health check reminders (every 30 days)
+    if (["livestock", "poultry"].includes(record.recordType)) {
+      const createdAt = new Date(record.createdAt);
+      const daysSinceCreated = Math.ceil((today.getTime() - createdAt.getTime()) / 86400000);
+      if (daysSinceCreated % 30 <= 2) {
+        try {
+          await createFarmTask({
+            farmRecordId: record.id,
+            title: `Monthly health check — ${record.name}`,
+            description: "Check for signs of illness, record weights, review vaccination schedule, and inspect housing conditions.",
+            category: "observation",
+            priority: "medium",
+            dueDate: today.toISOString().split("T")[0],
+            taskType: "ai_generated",
+          });
+          created++;
+        } catch {}
+      }
+    }
+
+    // At-risk records — flag for urgent check
+    if (record.healthStatus === "at_risk" || record.healthStatus === "affected") {
+      try {
+        await createFarmTask({
+          farmRecordId: record.id,
+          title: `⚠️ Urgent: Check ${record.name} — ${record.healthStatus.replace("_", " ")}`,
+          description: `This record is marked as "${record.healthStatus}". Take immediate action and consider using the AI Farm Assistant for diagnosis.`,
+          category: "observation",
+          priority: "urgent",
+          dueDate: today.toISOString().split("T")[0],
+          taskType: "ai_generated",
+        });
+        created++;
+      } catch {}
+    }
+  }
+
+  return created;
+}
+
 export async function deleteTask(id: string): Promise<void> {
   const { error } = await supabase.from("farm_tasks").delete().eq("id", id);
   if (error) throw error;

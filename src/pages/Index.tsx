@@ -4,25 +4,48 @@ import FarmingAdvice from "@/components/home/FarmingAdvice";
 import RegionalAlerts from "@/components/home/RegionalAlerts";
 import AgriNews from "@/components/home/AgriNews";
 import SocialFeed from "@/components/home/SocialFeed";
+import TodaysTasks from "@/components/home/TodaysTasks";
+import QuickActions from "@/components/home/QuickActions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Leaf, ArrowRight } from "lucide-react";
+import { Leaf, ArrowRight, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning,";
+  if (h < 17) return "Good afternoon,";
+  return "Good evening,";
+}
 
 const Index = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  const greeting = user ? `Welcome back, ${user.name} 🌾` : "Welcome to Harvest 🌾";
+  const farmTypeEmoji: Record<string, string> = {
+    crop: "🌾", livestock: "🐄", poultry: "🐔", aquaculture: "🐟",
+    beekeeping: "🐝", fruit: "🥭", mixed: "🌿",
+  };
+  const primaryType = user?.farmingActivities?.[0];
+  const emoji = primaryType ? (farmTypeEmoji[primaryType] ?? "🌾") : "🌾";
 
   return (
     <AppLayout>
       <div className="space-y-6 px-4 py-4">
+        {/* Header */}
         <div>
           <p className="text-sm text-muted-foreground">
-            {isAuthenticated ? "Good morning," : "Discover agriculture"}
+            {isAuthenticated ? getGreeting() : "Discover agriculture"}
           </p>
-          <h1 className="text-2xl font-bold text-foreground">{greeting}</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {user ? `${user.name.split(" ")[0]} ${emoji}` : "Welcome to Harvest 🌾"}
+          </h1>
+          {user?.location && (
+            <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3" />
+              <span>{user.location}</span>
+            </div>
+          )}
         </div>
 
         {/* Guest banner */}
@@ -60,7 +83,10 @@ const Index = () => {
           </motion.div>
         )}
 
+        {/* Authenticated user sections — prioritized for action */}
+        {isAuthenticated && <QuickActions />}
         <RegionalAlerts />
+        {isAuthenticated && <TodaysTasks />}
         <WeatherWidget />
         {isAuthenticated && <FarmingAdvice />}
         <AgriNews />

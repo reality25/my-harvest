@@ -15,6 +15,14 @@ import { getFarmActivities } from "@/lib/dataService";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 
+type Confidence = "high" | "medium" | "low";
+type Feedback = "helpful" | "not_helpful" | null;
+
+interface NextStep {
+  icon: string;
+  text: string;
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -22,6 +30,10 @@ interface ChatMessage {
   imageUrl?: string;
   guidance?: GuidanceResponse;
   source?: "knowledge-base" | "ai-model";
+  confidence?: Confidence;
+  nextSteps?: NextStep[];
+  isDiagnosis?: boolean;
+  feedback?: Feedback;
   timestamp: Date;
 }
 
@@ -60,6 +72,38 @@ const SourceBadge = ({ source }: { source: KnowledgeSource }) => {
   );
 };
 
+const CONFIDENCE_STYLES: Record<Confidence, { label: string; color: string; bg: string }> = {
+  high:   { label: "High confidence",   color: "text-emerald-700", bg: "bg-emerald-100" },
+  medium: { label: "Medium confidence", color: "text-amber-700",   bg: "bg-amber-100" },
+  low:    { label: "Low confidence",    color: "text-red-700",     bg: "bg-red-100" },
+};
+
+function ConfidenceBadge({ confidence }: { confidence: Confidence }) {
+  const cfg = CONFIDENCE_STYLES[confidence];
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cfg.bg} ${cfg.color}`}>
+      <BarChart2 className="h-2.5 w-2.5" /> {cfg.label}
+    </span>
+  );
+}
+
+function FeedbackButtons({ onFeedback, feedback }: { onFeedback: (fb: "helpful" | "not_helpful") => void; feedback: "helpful" | "not_helpful" | null | undefined }) {
+  if (feedback) {
+    return (
+      <p className="text-[10px] text-muted-foreground italic">
+        {feedback === "helpful" ? "Thanks for your feedback!" : "Feedback recorded. We'll improve."}
+      </p>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-muted-foreground">Was this helpful?</span>
+      <button onClick={() => onFeedback("helpful")} className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 hover:bg-emerald-200">Yes</button>
+      <button onClick={() => onFeedback("not_helpful")} className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700 hover:bg-red-200">No</button>
+    </div>
+  );
+}
+
 const GuidanceCard = ({ guidance }: { guidance: GuidanceResponse }) => (
   <div className="space-y-3">
     <h3 className="font-display text-base font-bold text-foreground">{guidance.title}</h3>
@@ -80,8 +124,9 @@ const GuidanceCard = ({ guidance }: { guidance: GuidanceResponse }) => (
     <div className="flex flex-wrap gap-1.5">
       {guidance.sources.map((src, i) => <SourceBadge key={i} source={src} />)}
     </div>
-    <p className="flex items-start gap-1.5 rounded-lg bg-muted/50 p-2 text-[11px] text-muted-foreground">
-      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />{guidance.disclaimer}
+    <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 border border-amber-200 p-2 text-[11px] text-amber-800">
+      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+      <span><strong>Disclaimer:</strong> {guidance.disclaimer} Always verify with a local agricultural extension officer or veterinarian before taking action.</span>
     </p>
   </div>
 );
@@ -97,6 +142,12 @@ const FarmAssistant = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  const handleFeedback = (msgId: string, fb: "helpful" | "not_helpful") => {
+    setMessages((prev) =>
+      prev.map((m) => m.id === msgId ? { ...m, feedback: fb } : m)
+    );
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -188,12 +239,24 @@ const FarmAssistant = () => {
         farmActivities,
       });
 
+      const isDiagnosis = hasImage || mode === "diagnosis";
+      const confidence: Confidence = response.source === "ai-model" ? "high" : isDiagnosis ? "medium" : "high";
+      const nextSteps: NextStep[] = isDiagnosis ? [
+        { icon: "🔍", text: "Monitor the affected area daily for changes" },
+        { icon: "📸", text: "Take photos every 2 days to track progression" },
+        { icon: "👨‍🌾", text: "Contact your local agricultural extension officer if condition worsens" },
+        { icon: "💊", text: "Isolate affected plants/animals to prevent spread" },
+      ] : [];
       const assistantMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
         content: response.content,
         guidance: response.guidance,
         source: response.source,
+        confidence,
+        nextSteps,
+        isDiagnosis,
+        feedback: null,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, assistantMsg]);
@@ -357,7 +420,6 @@ const FarmAssistant = () => {
                   <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                     msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-md" : "bg-card border rounded-bl-md"
                   }`}>
-                    {/* Image attachment */}
                     {msg.imageUrl && (
                       <img src={msg.imageUrl} alt="Uploaded" className="mb-2 h-36 w-full rounded-xl object-cover" />
                     )}
@@ -370,7 +432,44 @@ const FarmAssistant = () => {
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
                     )}
-                    <div className={`mt-1 flex items-center gap-1.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+
+                    {/* Confidence badge for assistant diagnosis messages */}
+                    {msg.role === "assistant" && msg.confidence && (
+                      <div className="mt-2">
+                        <ConfidenceBadge confidence={msg.confidence} />
+                        {msg.confidence === "low" && (
+                          <p className="mt-1 text-[11px] text-amber-700">
+                            Low confidence — please consult an expert before acting on this advice.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* What to do next — diagnosis only */}
+                    {msg.role === "assistant" && msg.isDiagnosis && msg.nextSteps && msg.nextSteps.length > 0 && (
+                      <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-blue-800">What to do next</p>
+                        <ul className="space-y-1">
+                          {msg.nextSteps.map((step, i) => (
+                            <li key={i} className="flex gap-2 text-xs text-blue-900">
+                              <span>{step.icon}</span>
+                              <span>{step.text}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Disclaimer for diagnosis */}
+                    {msg.role === "assistant" && msg.isDiagnosis && (
+                      <div className="mt-2 flex items-start gap-1 rounded-lg bg-amber-50 border border-amber-200 p-2 text-[10px] text-amber-800">
+                        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                        <span>AI results are indicative only. Always verify with a qualified agronomist or veterinarian.</span>
+                      </div>
+                    )}
+
+                    {/* Footer: timestamp + source + feedback */}
+                    <div className={`mt-2 flex flex-wrap items-center gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                       <p className={`text-[10px] ${msg.role === "user" ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
                         {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </p>
@@ -378,6 +477,12 @@ const FarmAssistant = () => {
                         <span className="flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
                           <Cpu className="h-2 w-2" /> AI
                         </span>
+                      )}
+                      {msg.role === "assistant" && (
+                        <FeedbackButtons
+                          feedback={msg.feedback}
+                          onFeedback={(fb) => handleFeedback(msg.id, fb)}
+                        />
                       )}
                     </div>
                   </div>
