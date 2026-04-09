@@ -1,7 +1,7 @@
 import { Bell, Search, Leaf, LogIn, Home, ShoppingBag, Users, Sprout, Wrench, Bot } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import NavLink from "./NavLink";
+
 
 const desktopNav = [
   { path: "/", icon: Home, label: "Home" },
