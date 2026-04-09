@@ -17,7 +17,7 @@ const Index = () => {
 
   return (
     <AppLayout>
-      <div className="space-y-6 px-4 py-4">
+      <div className="space-y-6 px-4 py-4 lg:py-6">
         <div>
           <p className="text-sm text-muted-foreground">
             {isAuthenticated ? "Good morning," : "Discover agriculture"}
