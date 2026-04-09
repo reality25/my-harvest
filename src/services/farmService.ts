@@ -337,6 +337,95 @@ export async function failAIRequest(id: string): Promise<void> {
   await supabase.from("ai_requests").update({ status: "failed" }).eq("id", id);
 }
 
+// ─── Farm Tasks ───────────────────────────────────────────────────────────────
+
+export interface FarmTask {
+  id: string;
+  userId: string;
+  farmRecordId?: string;
+  title: string;
+  description?: string;
+  category: string;
+  taskType: string;
+  priority: string;
+  dueDate?: string;
+  isCompleted: boolean;
+  completedAt?: string;
+  createdAt: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeTask(row: any): FarmTask {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    farmRecordId: row.farm_record_id ?? undefined,
+    title: row.title,
+    description: row.description ?? undefined,
+    category: row.category ?? "other",
+    taskType: row.task_type ?? "manual",
+    priority: row.priority ?? "medium",
+    dueDate: row.due_date ?? undefined,
+    isCompleted: row.is_completed ?? false,
+    completedAt: row.completed_at ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export async function fetchFarmTasks(): Promise<FarmTask[]> {
+  const { data, error } = await supabase
+    .from("farm_tasks")
+    .select("*")
+    .order("due_date", { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return (data ?? []).map(normalizeTask);
+}
+
+export async function createFarmTask(data: {
+  title: string;
+  description?: string;
+  farmRecordId?: string;
+  category?: string;
+  priority?: string;
+  dueDate?: string;
+  taskType?: string;
+}): Promise<FarmTask> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("Not authenticated");
+
+  const { data: row, error } = await supabase
+    .from("farm_tasks")
+    .insert({
+      user_id: userId,
+      farm_record_id: data.farmRecordId ?? null,
+      title: data.title,
+      description: data.description ?? null,
+      category: data.category ?? "other",
+      priority: data.priority ?? "medium",
+      due_date: data.dueDate ?? null,
+      task_type: data.taskType ?? "manual",
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return normalizeTask(row);
+}
+
+export async function completeTask(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("farm_tasks")
+    .update({ is_completed: true, completed_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteTask(id: string): Promise<void> {
+  const { error } = await supabase.from("farm_tasks").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ─── Media upload ─────────────────────────────────────────────────────────────
 
 export async function uploadFarmMedia(file: File): Promise<string> {
