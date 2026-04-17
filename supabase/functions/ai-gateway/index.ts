@@ -39,7 +39,7 @@ async function hfFetch(url: string, body: unknown, contentType = "application/js
 }
 
 async function handleText(prompt: string, maxTokens = 600, temperature = 0.35) {
-  const res = await hfFetch(`${HF_BASE}/v1/chat/completions`, {
+  const res = await hfFetch(`${HF_BASE}https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3`, {
     model: MODELS.text,
     messages: [{ role: "user", content: prompt }],
     max_tokens: maxTokens,
