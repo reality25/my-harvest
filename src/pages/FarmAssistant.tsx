@@ -263,8 +263,17 @@ const FarmAssistant = () => {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [pendingImage, setPendingImage] = useState<{ file: File; preview: string } | null>(null);
+  const [warmup, setWarmup] = useState<AIStatus | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Subscribe to model warm-up status (HF cold-start retries)
+  useEffect(() => {
+    const unsub = subscribeAIStatus((s) => {
+      setWarmup(s.kind === "warming" ? s : null);
+    });
+    return unsub;
+  }, []);
 
   const { data: farmActivities = [] } = useQuery({
     queryKey: ["/api/farm-activities", user?.id],
