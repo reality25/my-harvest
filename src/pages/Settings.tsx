@@ -1,8 +1,11 @@
 import AppLayout from "@/components/AppLayout";
-import { ArrowLeft, Moon, Sun, Bell, Lock, User, ChevronRight } from "lucide-react";
+import { ArrowLeft, Moon, Sun, Bell, Lock, User, ChevronRight, MapPin, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { countries, kenyanCounties } from "@/components/onboarding/locationData";
+import { useManualLocation } from "@/hooks/useManualLocation";
+import { toast } from "sonner";
 
 const Settings = () => {
   const navigate = useNavigate();
