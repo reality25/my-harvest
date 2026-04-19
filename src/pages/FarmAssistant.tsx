@@ -12,7 +12,7 @@ import { fetchFarmActivities } from "@/lib/supabaseService";
 import { useQuery } from "@tanstack/react-query";
 import type { GuidanceResponse, KnowledgeSource, AssistantMode } from "@/lib/agricultureKnowledge";
 import type { AIResponse, FarmingContext, TrustedResource } from "@/services/aiService";
-import { queryAI, analyzeImage, queryActivityAdvice } from "@/services/aiService";
+import { queryAI, analyzeImage, queryActivityAdvice, subscribeAIStatus, type AIStatus } from "@/services/aiService";
 import ReactMarkdown from "react-markdown";
 
 // ─── Chat message types ────────────────────────────────────────────────────────
