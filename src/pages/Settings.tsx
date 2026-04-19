@@ -115,6 +115,82 @@ const Settings = () => {
           </div>
         </motion.div>
 
+        {/* Location */}
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 }} className="harvest-card p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <MapPin className="h-5 w-5 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">Location</h2>
+          </div>
+          <p className="text-[11px] text-muted-foreground mb-3">
+            Set your location manually so weather, news, and AI advice are accurate even when GPS is off.
+          </p>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">Country</label>
+              <select
+                value={locCountry}
+                onChange={(e) => { setLocCountry(e.target.value); setLocRegion(""); }}
+                className="w-full h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+              >
+                {countries.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-medium text-muted-foreground mb-1 block">
+                {selectedCountry.regionLabel}
+              </label>
+              {locCountry === "KE" ? (
+                <select
+                  value={locRegion}
+                  onChange={(e) => setLocRegion(e.target.value)}
+                  className="w-full h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+                >
+                  <option value="">Select a county…</option>
+                  {kenyanCounties.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={locRegion}
+                  onChange={(e) => setLocRegion(e.target.value)}
+                  placeholder={`Enter your ${selectedCountry.regionLabel.toLowerCase()}`}
+                  className="w-full h-11 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground"
+                />
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={saveLocation}
+                className="flex-1 h-11 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center justify-center gap-2 hover:opacity-90"
+              >
+                <Check className="h-4 w-4" />
+                Save location
+              </button>
+              {manualLoc && (
+                <button
+                  onClick={clearLocation}
+                  className="h-11 px-3 rounded-lg border border-border text-sm text-foreground hover:bg-muted"
+                >
+                  Use GPS
+                </button>
+              )}
+            </div>
+
+            {manualLoc && (
+              <p className="text-[11px] text-muted-foreground">
+                Currently pinned to <span className="font-medium text-foreground">{manualLoc.region}, {manualLoc.country}</span>
+              </p>
+            )}
+          </div>
+        </motion.div>
+
         {/* Notifications */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="harvest-card p-4">
           <div className="flex items-center gap-3 mb-3">
