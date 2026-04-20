@@ -301,7 +301,7 @@ function buildRAGPrompt(
 ${retryNote}
 FARMER CONTEXT: ${contextLine}
 WEATHER & SEASON: ${weatherSummary || getCurrentSeason()}
-${newsBlock}
+${farmDetailsBlock}${newsBlock}
 VERIFIED KNOWLEDGE BASE (use this to ground your answer):
 ${retrievedBlock}
 
