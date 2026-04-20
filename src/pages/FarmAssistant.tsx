@@ -287,11 +287,71 @@ const FarmAssistant = () => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const buildContext = useCallback((): FarmingContext => ({
-    location: user?.location || "Kenya",
-    farmActivities: farmActivities.map((a) => `${a.name} (${a.type})`),
-    mode,
-  }), [user, farmActivities, mode]);
+  /**
+   * Pick the activity most relevant to a query (matches species, name, type).
+   * Falls back to the first activity if nothing matches.
+   */
+  const matchActivity = (q: string, activities: FarmActivity[]): FarmActivity | undefined => {
+    if (!activities.length) return undefined;
+    const ql = q.toLowerCase();
+    const scored = activities
+      .map((a) => {
+        let score = 0;
+        const haystack = `${a.name} ${a.species} ${a.type}`.toLowerCase();
+        for (const word of haystack.split(/\s+/)) {
+          if (word.length > 3 && ql.includes(word)) score += 2;
+        }
+        if (ql.includes(a.type)) score += 1;
+        return { a, score };
+      })
+      .sort((x, y) => y.score - x.score);
+    return scored[0]?.score > 0 ? scored[0].a : activities[0];
+  };
+
+  /**
+   * Build a compact, plain-English summary of the farmer's actual operations
+   * for the AI prompt. Includes upcoming tasks and most recent records.
+   */
+  const summarizeActivities = (activities: FarmActivity[]): string => {
+    if (!activities.length) return "";
+    const today = new Date();
+    return activities.slice(0, 4).map((a) => {
+      const upcoming = (a.tasks || [])
+        .filter((t) => !t.completed)
+        .sort((x, y) => x.dueDate.localeCompare(y.dueDate))[0];
+      const lastRecord = (a.records || [])
+        .slice()
+        .sort((x, y) => y.date.localeCompare(x.date))[0];
+      const overdue = upcoming && new Date(upcoming.dueDate) < today;
+
+      const parts = [`- ${a.name} (${a.type}, ${a.species}, ${a.size}) started ${a.startDate}`];
+      if (upcoming) {
+        parts.push(`  next task: "${upcoming.title}" due ${upcoming.dueDate}${overdue ? " (OVERDUE)" : ""}`);
+      }
+      if (lastRecord) {
+        parts.push(`  last record (${lastRecord.date}): ${lastRecord.type} — ${lastRecord.description}`);
+      }
+      return parts.join("\n");
+    }).join("\n");
+  };
+
+  const buildContext = useCallback(async (query: string): Promise<FarmingContext> => {
+    const matched = matchActivity(query, farmActivities);
+    const weather = await getWeatherContext().catch(() => null);
+
+    const ctx: FarmingContext = {
+      location: weather?.location || user?.location || "Kenya",
+      farmActivities: farmActivities.map((a) => `${a.name} (${a.type}, ${a.species})`),
+      farmContextSummary: summarizeActivities(farmActivities) || undefined,
+      mode,
+    };
+
+    if (matched) {
+      if (matched.type === "crop") ctx.cropType = matched.species || matched.name;
+      else if (matched.type === "livestock" || matched.type === "poultry") ctx.livestockType = matched.species || matched.name;
+    }
+    return ctx;
+  }, [user, farmActivities, mode]);
 
   const appendMessage = (msg: ChatMessage) =>
     setMessages((prev) => [...prev, msg]);
