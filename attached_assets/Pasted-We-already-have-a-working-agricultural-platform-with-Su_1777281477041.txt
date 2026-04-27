@@ -1,0 +1,15 @@
+We already have a working agricultural platform with Supabase backend, AI gateway (Hugging Face via Edge Functions), and existing weather + news components. Do NOT rewrite or remove existing architecture. Your task is to audit, fix, and strengthen the integration so that weather and agricultural news become fully personalized, location-aware, and usable by the AI assistant and farm management system.
+
+Weather must be dynamically fetched using a reliable real-world API (no hardcoded or mock data). The system must determine user location via browser geolocation with a fast fallback to profile location stored in Supabase (country, region, or farm location). Users must also be able to manually input or override location at any time. Based on this, provide a 7-day forecast by default, with optional hourly breakdown when requested. Weather data must include temperature, rainfall probability, humidity, wind, and any severe conditions.
+
+Integrate intelligent agricultural alerts derived from weather data such as drought risk, flood warnings, frost risk, pest outbreak likelihood, and disease-conducive conditions (e.g., high humidity + heat). These alerts must be generated dynamically, not hardcoded, and tied to the user’s crops or farm records where possible.
+
+News must be fetched from verified, real agricultural and environmental sources only (e.g. FAO, government agriculture departments, meteorological agencies, research institutions). Filter and prioritize news based on the user’s country and region first, then fall back to nearby regions or continent-level if nothing is available. News must refresh automatically at least once per day and never display stale or static content. Do not fabricate news.
+
+Ensure both weather and news services are connected to the AI assistant pipeline. The AI (via ai-gateway) must be able to use real-time weather context and recent agricultural news when generating advice, planning recommendations, or diagnostics. Weather summaries should already be injected into prompts — verify this is working correctly and improve formatting if needed, without breaking existing prompt structure.
+
+Integrate this data into farm management features: allow weather-driven suggestions for farm activities (e.g., irrigation timing, spraying windows, planting advisories), and enable alerts or notifications tied to upcoming weather risks or important news events relevant to the farmer’s crops or livestock.
+
+UI/UX must remain responsive and mobile-friendly. Improve clarity where needed: show current location clearly, allow easy switching of location, provide refresh controls, and ensure loading/error states are handled gracefully (no freezing, no silent failures). If APIs fail, degrade gracefully by falling back to last cached valid data, never fake data.
+
+Do not introduce breaking changes. Do not remove existing Supabase integrations, Edge Functions, or AI flows. Only enhance, connect, and stabilize what already exists so the system behaves like a cohesive, real-time agricultural assistant.

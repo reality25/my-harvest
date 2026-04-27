@@ -1,8 +1,11 @@
-import { Newspaper, ArrowRight, ExternalLink } from "lucide-react";
+import { Newspaper, ArrowRight, ExternalLink, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { getArticles } from "@/lib/dataService";
-import { fetchAgriNews, type NewsArticle } from "@/services/newsService";
+import {
+  fetchAgriNewsWithMeta, clearNewsCache,
+  type NewsArticle, type NewsResult,
+} from "@/services/newsService";
 import { getWeatherContext } from "@/services/weatherService";
 import EmptyState from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,30 +16,62 @@ const SCOPE_LABEL: Record<NewsArticle["scope"], string> = {
   "global":      "Global",
 };
 
+// Auto-refresh threshold — once per day
+const AUTO_REFRESH_MS = 24 * 60 * 60 * 1000;
+
+function timeAgo(ts: number): string {
+  if (!ts) return "never";
+  const diff = Date.now() - ts;
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const d = Math.floor(hr / 24);
+  return `${d}d ago`;
+}
+
 const AgriNews = () => {
   const adminArticles = getArticles();
-  const [liveNews, setLiveNews]   = useState<NewsArticle[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [result, setResult]     = useState<NewsResult | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      // Resolve user location first (best-effort, hierarchical)
-      const weather = await getWeatherContext().catch(() => null);
-      const articles = await fetchAgriNews({
-        location: weather?.location,
-        country:  weather?.country ?? "Kenya",
-        limit:    8,
-      });
-      if (!cancelled) {
-        setLiveNews(articles);
-        setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+  const load = useCallback(async (force = false) => {
+    if (force) {
+      setRefreshing(true);
+      clearNewsCache();
+    }
+    const weather = await getWeatherContext().catch(() => null);
+    const r = await fetchAgriNewsWithMeta({
+      location: weather?.location,
+      country:  weather?.country ?? "Kenya",
+      limit:    8,
+    });
+    setResult(r);
+    setLoading(false);
+    setRefreshing(false);
   }, []);
 
+  useEffect(() => {
+    load();
+    // Refresh on location change
+    const handler = () => load(true);
+    window.addEventListener("harvest:location-changed", handler);
+    return () => window.removeEventListener("harvest:location-changed", handler);
+  }, [load]);
+
+  // Auto-refresh once per day on mount if cache is older than threshold
+  useEffect(() => {
+    if (result && result.fetchedAt > 0 && Date.now() - result.fetchedAt > AUTO_REFRESH_MS) {
+      load(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result?.fetchedAt]);
+
+  const liveNews   = result?.articles ?? [];
   const hasContent = liveNews.length > 0 || adminArticles.length > 0;
+  const isStale    = result?.source === "stale";
 
   return (
     <motion.div
@@ -44,18 +79,33 @@ const AgriNews = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
     >
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-harvest-sky/10">
+      <div className="flex items-center justify-between mb-3 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-harvest-sky/10 shrink-0">
             <Newspaper className="h-4 w-4 text-harvest-sky" />
           </div>
           <h2 className="harvest-section-title">Agri News</h2>
+          {result && result.fetchedAt > 0 && (
+            <span className="text-[10px] text-muted-foreground truncate">
+              · {isStale ? "cached " : "updated "}{timeAgo(result.fetchedAt)}
+            </span>
+          )}
         </div>
-        {hasContent && (
-          <button className="flex items-center gap-1 text-xs font-medium text-primary">
-            See all <ArrowRight className="h-3 w-3" />
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => load(true)}
+            disabled={refreshing}
+            aria-label="Refresh news"
+            className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-muted disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${refreshing ? "animate-spin" : ""}`} />
           </button>
-        )}
+          {hasContent && (
+            <button className="flex items-center gap-1 text-xs font-medium text-primary">
+              See all <ArrowRight className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       </div>
 
       {loading && adminArticles.length === 0 ? (
@@ -68,7 +118,7 @@ const AgriNews = () => {
         <EmptyState
           icon={Newspaper}
           title="No agricultural news available"
-          description="Live news feeds are temporarily unreachable. Please check again shortly."
+          description="Live news feeds are temporarily unreachable. Tap refresh to try again."
         />
       ) : (
         <div className="space-y-3">
