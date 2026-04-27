@@ -56,12 +56,26 @@ function cacheWeather(ctx: WeatherContext): void {
 
 async function getBrowserCoordinates(): Promise<{ lat: number; lon: number } | null> {
   if (!navigator.geolocation) return null;
+  // Hard outer timeout — some browsers (and headless environments) never
+  // resolve the permission prompt, so we must guarantee we resolve quickly.
   return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-      () => resolve(null),
-      { timeout: 6_000, maximumAge: 300_000 }
-    );
+    let settled = false;
+    const finish = (v: { lat: number; lon: number } | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(v);
+    };
+    const hardTimer = setTimeout(() => finish(null), 5_000);
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => { clearTimeout(hardTimer); finish({ lat: pos.coords.latitude, lon: pos.coords.longitude }); },
+        () => { clearTimeout(hardTimer); finish(null); },
+        { timeout: 4_000, maximumAge: 300_000 }
+      );
+    } catch {
+      clearTimeout(hardTimer);
+      finish(null);
+    }
   });
 }
 

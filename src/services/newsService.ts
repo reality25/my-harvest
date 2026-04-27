@@ -74,27 +74,19 @@ export async function fetchAgriNews(query: NewsQuery = {}): Promise<NewsArticle[
   if (cached) return cached;
 
   try {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const res = await fetch(`${supabaseUrl}/functions/v1/ai-gateway/news`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: supabaseKey,
-      },
-      body: JSON.stringify({
+    const { data, error } = await supabase.functions.invoke("ai-gateway/news", {
+      body: {
         location: query.location,
         country:  query.country ?? "Kenya",
         query:    query.query,
         limit:    query.limit ?? 10,
-      }),
+      },
     });
 
-    if (!res.ok) {
-      console.warn("[newsService] backend error:", res.status, await res.text().catch(() => ""));
+    if (error) {
+      console.warn("[newsService] gateway error:", error.message);
       return [];
     }
-    const data = await res.json();
     if (data?.error || !Array.isArray(data?.articles)) {
       console.warn("[newsService] no articles:", data?.error);
       return [];

@@ -1,0 +1,27 @@
+You are working on an existing production-grade React + TypeScript (Vite) application called Harvest. The backend architecture, Supabase integration, and AI gateway (Supabase Edge Function ai-gateway) are already implemented and must NOT be replaced or redesigned. Your task is to restore, complete, and validate the entire frontend UI/UX while ensuring that all systems — especially the AI assistant, image diagnosis, farm management, weather, and news — are fully functional, correctly integrated, and production-ready.
+
+This is not a redesign. Do not change core architecture, do not introduce new patterns, and do not remove existing logic. You must work within the current system and fix, restore, and complete it.
+
+First, fully restore and implement a complete, responsive UI/UX across the entire app. Ensure all buttons, inputs, navigation elements, and interactive components exist, are visible, and function correctly. Fix any missing UI elements, broken layouts, or non-responsive components. The application must be mobile-first and fully responsive across phones, tablets, and desktops, adapting cleanly to different screen sizes without layout breaks.
+
+Implement a fully functional AI Assistant interface. Users must be able to type messages, send them, and receive structured AI responses. The chat UI must include message history, loading states, error handling, and clear display of AI outputs including message, confidence, next steps, resources, and weather context. Ensure this connects strictly to aiService.ts and uses supabase.functions.invoke with ai-gateway/text. No direct API calls or keys in the frontend.
+
+Implement complete image diagnosis functionality. Users must be able to upload or capture images using their device camera where supported. Provide preview, submission, loading states, and results display. Ensure results include predictions, confidence scores, and actionable advice. This must connect to ai-gateway/image and function end-to-end without failures.
+
+Restore and ensure full farm management functionality. Users must be able to create, view, and manage farm activities, records, and timelines. All forms, buttons, and data flows must work correctly and persist data via Supabase. The UI must be clear, simple, and usable for real farmers.
+
+Integrate real-time weather data based on user location. Weather must be dynamically fetched from a real API with no hardcoded values and displayed in the UI (e.g., WeatherWidget). Ensure this data is also passed into the AI system via aiService for context-aware responses.
+
+Integrate agricultural news dynamically based on user location. Fetch from verified sources only, with no hardcoded data. If local news is unavailable, fall back to country or nearby regions. Ensure proper loading states, empty states, and clean UI presentation.
+
+Critically, you must validate that the AI system is fully operational. Verify that aiService.ts and embeddingService.ts correctly connect to the ai-gateway edge function for text, image, and embedding requests. Ensure that RAG retrieval, prompt construction, response parsing, retry logic, caching, and fallback mechanisms are all functioning. If any part is broken, fix it without rewriting the architecture.
+
+Ensure there are no references to VITE_HF_API_KEY or HUGGINGFACE_API_KEY in the frontend. All AI calls must go through the backend using HF_API_KEY via Deno.env.get in the edge function. Validate that the edge function responses match what the frontend expects and fix any mismatches.
+
+Check for and resolve all integration issues across the system. This includes broken imports, missing files, incorrect API calls, inconsistent data structures, and UI components not wired to services. Resolve any merge conflicts properly by preserving working configurations (Supabase, environment variables) while restoring missing functionality (AI assistant and farm management).
+
+Create or adjust Supabase schema only where necessary to support farm management features. Ensure it is minimal, consistent, and does not break existing data or authentication.
+
+Ensure the entire application compiles with zero TypeScript errors, runs without runtime errors, and has no broken flows. The final system must be fully usable: a farmer can open the app, chat with the AI, upload a photo for diagnosis, manage farm activities, view weather, and read relevant agricultural news without encountering errors or missing functionality.
+
+Do not use mock data, placeholders, or hardcoded values anywhere in AI, weather, news, or core functionality. Everything must be real, dynamic, and properly integrated.
