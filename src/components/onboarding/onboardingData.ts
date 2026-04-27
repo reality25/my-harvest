@@ -71,11 +71,46 @@ export const fishSpecies = [
   { id: "carp", label: "Carp", emoji: "🐟" },
 ];
 
+export const userRoles = [
+  { id: "farmer",       label: "Farmer",         desc: "I grow crops or raise animals",         emoji: "🌾" },
+  { id: "agribusiness", label: "Agribusiness",   desc: "I trade, process, or supply farms",     emoji: "🏪" },
+  { id: "student",      label: "Student",        desc: "I'm studying agriculture or biology",   emoji: "🎓" },
+  { id: "researcher",   label: "Researcher",     desc: "I work in agri research or extension",  emoji: "🔬" },
+  { id: "general",      label: "Just exploring", desc: "I'm curious about farming",             emoji: "🌱" },
+] as const;
+
+export type UserRoleId = typeof userRoles[number]["id"];
+
+export const languages = [
+  { id: "en", label: "English" },
+  { id: "sw", label: "Kiswahili" },
+  { id: "fr", label: "Français" },
+  { id: "rw", label: "Kinyarwanda" },
+  { id: "lg", label: "Luganda" },
+  { id: "am", label: "Amharic" },
+];
+
+export const interestTopics = [
+  { id: "weather",      label: "Weather & climate" },
+  { id: "markets",      label: "Markets & prices" },
+  { id: "pests",        label: "Pests & disease" },
+  { id: "soil",         label: "Soil & fertility" },
+  { id: "irrigation",   label: "Irrigation & water" },
+  { id: "agritech",     label: "Agritech & tools" },
+  { id: "policy",       label: "Policy & subsidies" },
+  { id: "training",     label: "Training & extension" },
+  { id: "finance",      label: "Finance & loans" },
+  { id: "exports",      label: "Exports & trade" },
+];
+
 export type OnboardingData = {
   name: string;
+  role: UserRoleId | "";
+  language: string;
   location: string;
   selectedTypes: string[];
   selectedScale: string;
+  selectedInterests: string[];
   // Follow-up data
   livestockAnimals: string[];
   livestockHerdSize: string;
@@ -92,9 +127,12 @@ export type OnboardingData = {
 
 export const defaultOnboardingData: OnboardingData = {
   name: "",
+  role: "",
+  language: "en",
   location: "Nairobi, Kenya",
   selectedTypes: [],
   selectedScale: "",
+  selectedInterests: [],
   livestockAnimals: [],
   livestockHerdSize: "",
   livestockPurpose: "",

@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { getCurrentUser, setCurrentUser, type User } from "@/lib/dataService";
 import { supabase } from "@/services/supabaseClient";
-import { fetchProfile } from "@/lib/supabaseService";
+import { fetchProfile, updateProfile } from "@/lib/supabaseService";
+import { syncProfile } from "@/services/profileService";
 
 interface AuthContextType {
   user: User | null;
@@ -42,17 +43,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const applySupabaseSession = useCallback(async (supabaseUser: { id: string; email?: string; user_metadata?: Record<string, string> }) => {
     const meta = supabaseUser.user_metadata ?? {};
-    // profiles table has NO avatar_url column — avatar always comes from auth user_metadata
+    // Prefer profiles.avatar_url (set by syncProfile) and fall back to the
+    // raw auth metadata avatar if the column isn't populated yet.
     const authAvatar = meta.avatar_url || meta.picture || "";
+
+    // Make sure a profiles row exists before we read it.
+    await syncProfile().catch(() => undefined);
 
     const profile = await fetchProfile(supabaseUser.id);
     if (profile) {
-      // Overlay auth avatar (not stored in DB profiles table)
-      const withAvatar: User = { ...profile, avatar: authAvatar || profile.avatar };
+      const withAvatar: User = { ...profile, avatar: profile.avatar || authAvatar };
       setCurrentUser(withAvatar);
       setUser(withAvatar);
-      const onboarded = localStorage.getItem(`harvest_onboarded_${profile.id}`);
-      setHasCompletedOnboarding(onboarded === "true");
+      // Onboarding completion is sourced from the DB first, with a
+      // localStorage fallback for installations that haven't run the
+      // personalization migration yet.
+      const dbDone = profile.onboardingCompleted === true;
+      const localDone = localStorage.getItem(`harvest_onboarded_${profile.id}`) === "true";
+      setHasCompletedOnboarding(dbDone || localDone);
     } else {
       // Fallback: build from auth metadata
       const name = meta.full_name ?? meta.name ?? supabaseUser.email?.split("@")[0] ?? "User";
@@ -157,7 +165,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setOnboardingComplete = useCallback(() => {
     setHasCompletedOnboarding(true);
     localStorage.setItem("harvest_onboarding_complete", "true");
-    if (user) localStorage.setItem(`harvest_onboarded_${user.id}`, "true");
+    if (user) {
+      localStorage.setItem(`harvest_onboarded_${user.id}`, "true");
+      // Persist to DB so the gate stops triggering on other devices.
+      // Best-effort: silently ignore if column not yet migrated.
+      updateProfile(user.id, { onboarding_completed: true }).catch(() => undefined);
+    }
   }, [user]);
 
   return (

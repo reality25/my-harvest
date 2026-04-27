@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import OnboardingGate from "@/components/OnboardingGate";
 import { initializeApp } from "@/lib/dataService";
 import Index from "./pages/Index";
 import Marketplace from "./pages/Marketplace";
@@ -36,6 +37,7 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
+            <OnboardingGate>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/marketplace" element={<Marketplace />} />
@@ -56,6 +58,7 @@ const App = () => {
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </OnboardingGate>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

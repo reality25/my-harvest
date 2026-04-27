@@ -61,42 +61,104 @@ function displayLocation(row: ProfileRow | undefined): string {
 
 // ─── Profiles ─────────────────────────────────────────────────────────────────
 
+/**
+ * Defensively read a profile row.
+ *  - First we try to select EVERY personalization column. If the migration
+ *    has been applied this returns the rich row.
+ *  - If that fails (e.g. column missing because the migration hasn't run
+ *    yet), we fall back to the minimal column set so the app still works.
+ */
 export async function fetchProfile(userId: string): Promise<User | null> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, email, full_name, role, country, region, farm_scale, created_at")
-    .eq("id", userId)
-    .single()
-  if (error || !data) return null
-  const name = data.full_name || data.email?.split("@")[0] || "User"
+  const RICH = "id, email, full_name, role, country, region, farm_scale, created_at, " +
+               "avatar_url, bio, phone, language, farming_activities, primary_crops, " +
+               "livestock_types, interests, farm_size, onboarding_completed"
+  const MINIMAL = "id, email, full_name, role, country, region, farm_scale, created_at"
+
+  let data: Record<string, unknown> | null = null
+  const rich = await supabase.from("profiles").select(RICH).eq("id", userId).maybeSingle()
+  if (!rich.error && rich.data) {
+    data = rich.data as Record<string, unknown>
+  } else {
+    const minimal = await supabase.from("profiles").select(MINIMAL).eq("id", userId).maybeSingle()
+    if (minimal.error || !minimal.data) return null
+    data = minimal.data as Record<string, unknown>
+  }
+
+  const name = (data.full_name as string) || (data.email as string)?.split("@")[0] || "User"
+  const avatarUrl = (data.avatar_url as string) || ""
   return {
-    id: data.id,
+    id:                data.id as string,
     name,
-    email: data.email || "",
-    role: (data.role as User["role"]) || "user",
-    location: data.region || data.country || "",
-    avatar: name.charAt(0).toUpperCase(),   // real avatar_url not in profiles — overlay from auth
-    farmingActivities: [],
-    bio: "",
-    followers: 0,
-    following: 0,
-    postsCount: 0,
-    createdAt: data.created_at || new Date().toISOString(),
-    suspended: false,
-    country: data.country || undefined,
-    region: data.region || undefined,
-    farmScale: data.farm_scale || undefined,
+    email:             (data.email as string) || "",
+    role:              ((data.role as string) || "user") as User["role"],
+    location:          (data.region as string) || (data.country as string) || "",
+    avatar:            avatarUrl || name.charAt(0).toUpperCase(),
+    farmingActivities: (data.farming_activities as string[]) || [],
+    bio:               (data.bio as string) || "",
+    followers:         0,
+    following:         0,
+    postsCount:        0,
+    createdAt:         (data.created_at as string) || new Date().toISOString(),
+    suspended:         false,
+    country:           (data.country as string) || undefined,
+    region:            (data.region as string) || undefined,
+    farmScale:         (data.farm_scale as string) || undefined,
+    language:          (data.language as string) || undefined,
+    primaryCrops:      (data.primary_crops as string[]) || undefined,
+    livestockTypes:    (data.livestock_types as string[]) || undefined,
+    interests:         (data.interests as string[]) || undefined,
+    farmSize:          (data.farm_size as string) || undefined,
+    phone:             (data.phone as string) || undefined,
+    onboardingCompleted: data.onboarding_completed === true,
   }
 }
 
+/**
+ * Update a profile row. Accepts every personalization field. We split the
+ * update into "core" (always-present columns) and "extended" (added by the
+ * personalization migration) so the core update succeeds even if the
+ * extended columns don't exist yet.
+ */
 export async function updateProfile(userId: string, updates: {
-  full_name?: string
-  country?: string
-  region?: string
-  farm_scale?: string
+  full_name?:           string
+  country?:             string
+  region?:              string
+  farm_scale?:          string
+  role?:                string
+  avatar_url?:          string
+  bio?:                 string
+  phone?:               string
+  language?:            string
+  farming_activities?:  string[]
+  primary_crops?:       string[]
+  livestock_types?:     string[]
+  interests?:           string[]
+  farm_size?:           string
+  onboarding_completed?: boolean
 }) {
-  const { error } = await supabase.from("profiles").update(updates).eq("id", userId)
-  if (error) throw error
+  const CORE_KEYS = ["full_name", "country", "region", "farm_scale", "role"] as const
+  const core: Record<string, unknown> = {}
+  const extended: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(updates)) {
+    if (v === undefined) continue
+    if ((CORE_KEYS as readonly string[]).includes(k)) core[k] = v
+    else extended[k] = v
+  }
+
+  if (Object.keys(core).length) {
+    const { error } = await supabase.from("profiles").update(core).eq("id", userId)
+    if (error) throw error
+  }
+
+  if (Object.keys(extended).length) {
+    // Best-effort. Swallow column-missing errors so the app keeps working
+    // before the migration is applied.
+    const { error } = await supabase.from("profiles").update(extended).eq("id", userId)
+    if (error && !/column .* does not exist/i.test(error.message)) {
+      // Real error → surface it
+      throw error
+    }
+  }
 }
 
 // ─── Communities ──────────────────────────────────────────────────────────────

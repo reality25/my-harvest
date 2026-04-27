@@ -9,9 +9,9 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: "farmer" | "business" | "expert" | "general" | "admin" | "user";
+  role: "farmer" | "agribusiness" | "business" | "expert" | "general" | "admin" | "user" | "student" | "researcher";
   location: string;       // mapped from profiles.region (or country)
-  avatar: string;         // from auth user_metadata.avatar_url (not in profiles table)
+  avatar: string;         // from profiles.avatar_url, falling back to auth user_metadata.avatar_url
   farmingActivities: string[];
   bio: string;
   followers: number;
@@ -19,9 +19,17 @@ export interface User {
   postsCount: number;
   createdAt: string;
   suspended: boolean;
+  // Personalization fields (added in profile_personalization migration; all optional)
   country?: string;
   region?: string;
   farmScale?: string;
+  language?: string;
+  primaryCrops?: string[];
+  livestockTypes?: string[];
+  interests?: string[];
+  farmSize?: string;
+  phone?: string;
+  onboardingCompleted?: boolean;
 }
 
 export interface Post {
