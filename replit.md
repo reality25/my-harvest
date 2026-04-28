@@ -23,7 +23,8 @@ src/
     Marketplace.tsx        # Marketplace listings
     FarmManagement.tsx     # My Farm (farm activities/tasks/records)
     Notifications.tsx      # Notifications
-    Onboarding.tsx         # First-time onboarding (47 Kenyan counties)
+    Onboarding.tsx         # 9-step wizard: welcome → name → role → location → language → (farmer: types/follow-ups/scale) → interests → done
+    Profile.tsx            # Profile summary + inline edit form (name, bio, role, location, language, activities, crops, livestock, interests, phone)
     FarmAssistant.tsx      # AI assistant
     AdminDashboard.tsx     # Admin panel (role-gated)
   components/

@@ -7,6 +7,7 @@ import {
   type NewsArticle, type NewsResult,
 } from "@/services/newsService";
 import { getWeatherContext } from "@/services/weatherService";
+import { useAuth } from "@/contexts/AuthContext";
 import EmptyState from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -33,9 +34,13 @@ function timeAgo(ts: number): string {
 
 const AgriNews = () => {
   const adminArticles = getArticles();
+  const { user } = useAuth();
   const [result, setResult]     = useState<NewsResult | null>(null);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const interests  = user?.interests          ?? [];
+  const activities = user?.farmingActivities  ?? [];
 
   const load = useCallback(async (force = false) => {
     if (force) {
@@ -44,14 +49,16 @@ const AgriNews = () => {
     }
     const weather = await getWeatherContext().catch(() => null);
     const r = await fetchAgriNewsWithMeta({
-      location: weather?.location,
-      country:  weather?.country ?? "Kenya",
-      limit:    8,
+      location:   weather?.location,
+      country:    weather?.country ?? user?.country ?? "Kenya",
+      limit:      8,
+      interests,
+      activities,
     });
     setResult(r);
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [interests.join(","), activities.join(","), user?.country]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     load();

@@ -20,6 +20,28 @@ import { retrieveTopK, clearEmbeddingCache } from "@/services/embeddingService";
 import { getWeatherContext, weatherToPromptString } from "@/services/weatherService";
 import { fetchAgriNews, newsToPromptString } from "@/services/newsService";
 import { supabase } from "@/services/supabaseClient";
+import { getCurrentUser } from "@/lib/dataService";
+
+/** Merge the live profile of the signed-in user into a FarmingContext.
+ *  Fields explicitly passed by the caller win over the profile defaults
+ *  so per-feature overrides (e.g. activity-specific advice) still apply. */
+function enrichContextWithProfile(ctx: FarmingContext = {}): FarmingContext {
+  const u = getCurrentUser();
+  if (!u) return ctx;
+  return {
+    ...ctx,
+    userRole:        ctx.userRole        ?? u.role,
+    country:         ctx.country         ?? u.country,
+    region:          ctx.region          ?? u.region,
+    location:        ctx.location        ?? u.location,
+    farmScale:       ctx.farmScale       ?? u.farmScale,
+    farmActivities:  ctx.farmActivities  ?? u.farmingActivities,
+    primaryCrops:    ctx.primaryCrops    ?? u.primaryCrops,
+    livestockTypes:  ctx.livestockTypes  ?? u.livestockTypes,
+    interests:       ctx.interests       ?? u.interests,
+    language:        ctx.language        ?? u.language,
+  };
+}
 
 // ─── Model names (for display / logging only — actual calls go through backend) ─
 
@@ -198,6 +220,24 @@ export interface FarmingContext {
    *  upcoming tasks and recent records. Injected verbatim into the prompt
    *  so AI advice can reference the farmer's real situation. */
   farmContextSummary?: string;
+
+  // ─── Personalization (auto-enriched from current user profile) ───────────
+  /** "farmer" | "agribusiness" | "student" | "researcher" | "general" | … */
+  userRole?: string;
+  /** Country, e.g. "Kenya" */
+  country?: string;
+  /** County / region within country */
+  region?: string;
+  /** "garden" | "small" | "medium" | "large" */
+  farmScale?: string;
+  /** Primary crop ids the user grows */
+  primaryCrops?: string[];
+  /** Livestock type ids the user keeps */
+  livestockTypes?: string[];
+  /** Topic interests the user opted into during onboarding */
+  interests?: string[];
+  /** Preferred language code (en, sw, fr, …) */
+  language?: string;
 }
 
 // ─── Response Cache ───────────────────────────────────────────────────────────
@@ -272,12 +312,32 @@ function buildRAGPrompt(
     mode === "planning"  ? "Give timing, scheduling, and resource planning steps." :
                            "Give practical farming best practices and actionable advice.";
 
+  const scaleLabel: Record<string, string> = {
+    garden: "home gardener", small: "small-scale farmer (under 5 acres)",
+    medium: "medium-scale farmer (5–50 acres)", large: "large-scale farmer (over 50 acres)",
+  };
+  const roleLabel: Record<string, string> = {
+    farmer: "farmer", agribusiness: "agribusiness operator", student: "agriculture student",
+    researcher: "agricultural researcher", general: "agriculture enthusiast",
+  };
+
   const contextLine = [
+    farmingCtx.userRole       && roleLabel[farmingCtx.userRole],
+    farmingCtx.farmScale      && scaleLabel[farmingCtx.farmScale],
     farmingCtx.cropType       && `growing ${farmingCtx.cropType}`,
     farmingCtx.livestockType  && `raising ${farmingCtx.livestockType}`,
-    farmingCtx.location       && `based in ${farmingCtx.location}`,
-    farmingCtx.farmActivities?.length && `farm activities: ${farmingCtx.farmActivities.slice(0, 3).join(", ")}`,
+    farmingCtx.region && farmingCtx.country
+      ? `based in ${farmingCtx.region}, ${farmingCtx.country}`
+      : farmingCtx.location && `based in ${farmingCtx.location}`,
+    farmingCtx.primaryCrops?.length    && `primary crops: ${farmingCtx.primaryCrops.slice(0, 5).join(", ")}`,
+    farmingCtx.livestockTypes?.length  && `keeps: ${farmingCtx.livestockTypes.slice(0, 5).join(", ")}`,
+    farmingCtx.farmActivities?.length  && `farm activities: ${farmingCtx.farmActivities.slice(0, 3).join(", ")}`,
+    farmingCtx.interests?.length       && `interests: ${farmingCtx.interests.slice(0, 4).join(", ")}`,
   ].filter(Boolean).join("; ") || "smallholder farmer in Kenya";
+
+  const langLine = farmingCtx.language && farmingCtx.language !== "en"
+    ? `\nThe farmer's preferred language is "${farmingCtx.language}". When natural, include short translations of the most important step or warning, but keep the JSON keys and main answer in clear English so the app can render them.\n`
+    : "";
 
   const farmDetailsBlock = farmingCtx.farmContextSummary
     ? `\nFARMER'S CURRENT OPERATIONS (use this to make advice specific):\n${farmingCtx.farmContextSummary}\n`
@@ -300,7 +360,7 @@ function buildRAGPrompt(
   return `[INST] You are Harvest AI, a practical agricultural advisor for Kenyan and East African smallholder farmers.
 ${retryNote}
 FARMER CONTEXT: ${contextLine}
-WEATHER & SEASON: ${weatherSummary || getCurrentSeason()}
+WEATHER & SEASON: ${weatherSummary || getCurrentSeason()}${langLine}
 ${farmDetailsBlock}${newsBlock}
 VERIFIED KNOWLEDGE BASE (use this to ground your answer):
 ${retrievedBlock}
@@ -428,7 +488,10 @@ export async function queryAI(
   context?: FarmingContext,
   mode: AssistantMode = "advice"
 ): Promise<AIResponse> {
-  const location = context?.location ?? "Kenya";
+  // Auto-enrich the context with the signed-in user's profile so every
+  // call benefits from personalization without each caller knowing about it.
+  context = enrichContextWithProfile(context);
+  const location = context?.location ?? context?.country ?? "Kenya";
   const cacheKey = buildCacheKey(query, location, mode);
 
   // 1. Cache check

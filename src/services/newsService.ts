@@ -31,6 +31,10 @@ export interface NewsQuery {
   country?: string;
   query?: string;
   limit?: number;
+  /** User-selected interest topic ids (e.g. "weather", "markets", "pests"). */
+  interests?: string[];
+  /** User farming activities (e.g. "crop", "livestock"). */
+  activities?: string[];
 }
 
 export interface NewsResult {
@@ -53,7 +57,59 @@ interface CacheEntry {
 }
 
 function buildCacheKey(q: NewsQuery): string {
-  return `${q.location ?? ""}|${q.country ?? ""}|${q.query ?? ""}|${q.limit ?? 10}`.toLowerCase();
+  const interests  = (q.interests  ?? []).slice().sort().join(",");
+  const activities = (q.activities ?? []).slice().sort().join(",");
+  return `${q.location ?? ""}|${q.country ?? ""}|${q.query ?? ""}|${q.limit ?? 10}|${interests}|${activities}`.toLowerCase();
+}
+
+/** Map interest topic ids and farming activities to keyword bundles
+ *  used to filter / score the article pool. */
+const TOPIC_KEYWORDS: Record<string, string[]> = {
+  weather:    ["weather", "rain", "drought", "climate", "flood", "el niño", "la niña"],
+  markets:    ["price", "market", "trade", "export", "demand", "supply"],
+  pests:      ["pest", "disease", "armyworm", "locust", "fungus", "blight", "outbreak"],
+  soil:       ["soil", "fertility", "fertilizer", "compost", "manure", "nutrient"],
+  irrigation: ["irrigation", "water", "drip", "sprinkler", "borehole"],
+  agritech:   ["technology", "app", "digital", "drone", "ai", "innovation", "startup"],
+  policy:     ["policy", "subsidy", "government", "ministry", "regulation", "law"],
+  training:   ["training", "extension", "workshop", "course", "education"],
+  finance:    ["loan", "credit", "finance", "insurance", "funding", "grant"],
+  exports:    ["export", "import", "trade", "shipment", "global market"],
+  crop:       ["maize", "wheat", "beans", "rice", "vegetable", "harvest", "planting"],
+  livestock:  ["cattle", "cow", "goat", "sheep", "dairy", "beef", "livestock"],
+  poultry:    ["chicken", "poultry", "egg", "broiler", "layer"],
+  fruit:      ["fruit", "mango", "avocado", "banana", "citrus"],
+  aquaculture:["fish", "tilapia", "aquaculture", "pond", "fishery"],
+  beekeeping: ["bee", "honey", "apiary"],
+  mixed:      [],
+};
+
+function scoreArticleRelevance(
+  article: NewsArticle,
+  interests: string[],
+  activities: string[]
+): number {
+  if (!interests.length && !activities.length) return 0;
+  const text = `${article.title} ${article.summary}`.toLowerCase();
+  let score = 0;
+  for (const id of [...interests, ...activities]) {
+    const kws = TOPIC_KEYWORDS[id] ?? [];
+    for (const kw of kws) if (text.includes(kw)) score += 1;
+  }
+  return score;
+}
+
+function personalizeOrder(
+  articles: NewsArticle[],
+  interests: string[],
+  activities: string[]
+): NewsArticle[] {
+  if (!interests.length && !activities.length) return articles;
+  return articles
+    .map((a, idx) => ({ a, idx, score: scoreArticleRelevance(a, interests, activities) }))
+    // Stable sort: higher score first, original order on tie
+    .sort((x, y) => (y.score - x.score) || (x.idx - y.idx))
+    .map(({ a }) => a);
 }
 
 function readCache(key: string): CacheEntry | null {
@@ -106,7 +162,12 @@ export async function fetchAgriNewsWithMeta(query: NewsQuery = {}): Promise<News
     return { articles: cached.articles, fetchedAt: cached.fetchedAt, source: "fresh" };
   }
 
-  // Try the network
+  const interests  = query.interests  ?? [];
+  const activities = query.activities ?? [];
+
+  // Try the network. We always ask the gateway for the un-personalized pool
+  // and apply user-specific scoring on the client so caches stay shareable
+  // across users and the Edge Function contract is unchanged.
   try {
     const { data, error } = await supabase.functions.invoke("ai-gateway/news", {
       body: {
@@ -118,7 +179,7 @@ export async function fetchAgriNewsWithMeta(query: NewsQuery = {}): Promise<News
     });
 
     if (!error && Array.isArray(data?.articles) && data.articles.length > 0) {
-      const articles = data.articles as NewsArticle[];
+      const articles = personalizeOrder(data.articles as NewsArticle[], interests, activities);
       writeCache(key, articles);
       return { articles, fetchedAt: Date.now(), source: "fresh" };
     }
