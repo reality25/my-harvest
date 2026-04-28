@@ -1,36 +1,66 @@
 import AppLayout from "@/components/AppLayout";
-import { ArrowLeft, Moon, Sun, Bell, Lock, User, ChevronRight, MapPin, Check } from "lucide-react";
+import {
+  ArrowLeft, Moon, Sun, Bell, Lock, User, ChevronRight, MapPin, Check,
+  Languages,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { countries, kenyanCounties } from "@/components/onboarding/locationData";
+import { languages } from "@/components/onboarding/onboardingData";
 import { useManualLocation } from "@/hooks/useManualLocation";
+import { useAuth } from "@/contexts/AuthContext";
+import { updateProfile } from "@/lib/supabaseService";
 import { toast } from "sonner";
+
+const THEME_KEY = "harvest_theme";
+const NOTIF_KEY = "harvest_notif_prefs";
+const PRIV_KEY  = "harvest_privacy_prefs";
+
+type NotifPrefs   = { likes: boolean; comments: boolean; follows: boolean; marketplace: boolean; alerts: boolean };
+type PrivacyPrefs = { profilePublic: boolean; showLocation: boolean; showFarmDetails: boolean };
+
+function readJSON<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
+  } catch { return fallback; }
+}
+
+function writeJSON(key: string, value: unknown): void {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* quota */ }
+}
 
 const Settings = () => {
   const navigate = useNavigate();
+  const { user, updateUser } = useAuth();
+
+  // Theme — persisted
   const [darkMode, setDarkMode] = useState(() =>
     document.documentElement.classList.contains("dark")
   );
 
-  const [notifPrefs, setNotifPrefs] = useState({
-    likes: true,
-    comments: true,
-    follows: true,
-    marketplace: true,
-    alerts: true,
-  });
+  useEffect(() => {
+    if (darkMode) document.documentElement.classList.add("dark");
+    else          document.documentElement.classList.remove("dark");
+    try { localStorage.setItem(THEME_KEY, darkMode ? "dark" : "light"); } catch { /* noop */ }
+  }, [darkMode]);
 
-  const [privacyPrefs, setPrivacyPrefs] = useState({
-    profilePublic: true,
-    showLocation: true,
-    showFarmDetails: true,
-  });
+  // Notification + privacy preferences — persisted to localStorage
+  const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>(() =>
+    readJSON<NotifPrefs>(NOTIF_KEY, { likes: true, comments: true, follows: true, marketplace: true, alerts: true })
+  );
+  useEffect(() => writeJSON(NOTIF_KEY, notifPrefs), [notifPrefs]);
+
+  const [privacyPrefs, setPrivacyPrefs] = useState<PrivacyPrefs>(() =>
+    readJSON<PrivacyPrefs>(PRIV_KEY, { profilePublic: true, showLocation: true, showFarmDetails: true })
+  );
+  useEffect(() => writeJSON(PRIV_KEY, privacyPrefs), [privacyPrefs]);
 
   // Manual location override (any user can set this)
   const { location: manualLoc, setLocation: setManualLoc } = useManualLocation();
   const [locCountry, setLocCountry] = useState(manualLoc?.countryCode ?? "KE");
-  const [locRegion, setLocRegion] = useState(manualLoc?.region ?? "");
+  const [locRegion,  setLocRegion]  = useState(manualLoc?.region ?? "");
 
   useEffect(() => {
     setLocCountry(manualLoc?.countryCode ?? "KE");
@@ -45,9 +75,9 @@ const Settings = () => {
       return;
     }
     setManualLoc({
-      country: selectedCountry.name.replace(/\s.+$/, ""), // strip emoji
+      country:     selectedCountry.name.replace(/\s.+$/, ""),
       countryCode: selectedCountry.id,
-      region: locRegion.trim(),
+      region:      locRegion.trim(),
     });
     toast.success("Location saved — weather and news will refresh");
   };
@@ -58,23 +88,37 @@ const Settings = () => {
     toast.success("Using device location again");
   };
 
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
+  // Language — pulled from the user's profile (set during onboarding) and saved back
+  const [language, setLanguage]       = useState<string>(user?.language ?? "en");
+  const [savingLang, setSavingLang]   = useState(false);
+  useEffect(() => { setLanguage(user?.language ?? "en"); }, [user?.language]);
+
+  const saveLanguage = async (lng: string) => {
+    setLanguage(lng);
+    if (!user) {
+      toast.success("Language saved on this device");
+      return;
     }
-  }, [darkMode]);
+    setSavingLang(true);
+    updateUser({ language: lng });
+    try {
+      await updateProfile(user.id, { language: lng });
+      toast.success("Language updated");
+    } catch (err) {
+      console.warn("[settings] language save failed", err);
+      toast.error("Saved locally — couldn't reach the server");
+    } finally {
+      setSavingLang(false);
+    }
+  };
 
   const ToggleSwitch = ({
-    checked,
-    onChange,
-  }: {
-    checked: boolean;
-    onChange: (v: boolean) => void;
-  }) => (
+    checked, onChange,
+  }: { checked: boolean; onChange: (v: boolean) => void }) => (
     <button
       onClick={() => onChange(!checked)}
+      role="switch"
+      aria-checked={checked}
       className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
         checked ? "bg-primary" : "bg-muted"
       }`}
@@ -87,6 +131,14 @@ const Settings = () => {
     </button>
   );
 
+  const NOTIF_LABEL: Record<keyof NotifPrefs, string> = {
+    likes:       "Likes on your posts",
+    comments:    "Comments on your posts",
+    follows:     "New followers",
+    marketplace: "Marketplace activity",
+    alerts:      "Regional alerts",
+  };
+
   return (
     <AppLayout>
       <div className="px-4 py-4 space-y-6">
@@ -94,6 +146,7 @@ const Settings = () => {
           <button
             onClick={() => navigate(-1)}
             className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted"
+            aria-label="Go back"
           >
             <ArrowLeft className="h-5 w-5 text-foreground" />
           </button>
@@ -108,10 +161,38 @@ const Settings = () => {
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-foreground">Dark Mode</p>
+              <p className="text-sm text-foreground">Dark mode</p>
               <p className="text-[11px] text-muted-foreground">Switch between light and dark themes</p>
             </div>
             <ToggleSwitch checked={darkMode} onChange={setDarkMode} />
+          </div>
+        </motion.div>
+
+        {/* Language */}
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }} className="harvest-card p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <Languages className="h-5 w-5 text-primary" />
+            <h2 className="text-sm font-semibold text-foreground">Language</h2>
+          </div>
+          <p className="text-[11px] text-muted-foreground mb-3">
+            We'll use this where translations are available — including your AI assistant replies.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {languages.map((l) => {
+              const selected = language === l.id;
+              return (
+                <button
+                  key={l.id}
+                  onClick={() => saveLanguage(l.id)}
+                  disabled={savingLang}
+                  className={`rounded-xl border-2 px-3 py-2.5 text-sm font-medium transition-all disabled:opacity-50 ${
+                    selected ? "border-primary bg-primary/5 text-primary" : "border-border bg-card text-foreground hover:border-primary/30"
+                  }`}
+                >
+                  {l.label}
+                </button>
+              );
+            })}
           </div>
         </motion.div>
 
@@ -198,11 +279,11 @@ const Settings = () => {
             <h2 className="text-sm font-semibold text-foreground">Notifications</h2>
           </div>
           <div className="space-y-3">
-            {Object.entries(notifPrefs).map(([key, value]) => (
+            {(Object.keys(notifPrefs) as (keyof NotifPrefs)[]).map((key) => (
               <div key={key} className="flex items-center justify-between">
-                <p className="text-sm capitalize text-foreground">{key === "marketplace" ? "Marketplace activity" : key === "alerts" ? "Regional alerts" : key}</p>
+                <p className="text-sm text-foreground">{NOTIF_LABEL[key]}</p>
                 <ToggleSwitch
-                  checked={value}
+                  checked={notifPrefs[key]}
                   onChange={(v) => setNotifPrefs((p) => ({ ...p, [key]: v }))}
                 />
               </div>
@@ -232,7 +313,7 @@ const Settings = () => {
           </div>
         </motion.div>
 
-        {/* Profile */}
+        {/* Profile shortcut */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="harvest-card">
           <button
             onClick={() => navigate("/profile")}

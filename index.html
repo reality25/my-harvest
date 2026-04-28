@@ -23,6 +23,17 @@
     <meta name="twitter:description" content="Connect with farmers, manage your farm, access markets and expert advice." />
   </head>
   <body>
+    <script>
+      // Apply theme preference before first paint to avoid a flash of light theme
+      (function () {
+        try {
+          var pref = localStorage.getItem("harvest_theme");
+          var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var dark = pref === "dark" || (pref === null && prefersDark);
+          if (dark) document.documentElement.classList.add("dark");
+        } catch (e) { /* localStorage may be blocked */ }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
